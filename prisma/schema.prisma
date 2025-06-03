@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 枚举类型
+enum FoodType {
+  DISH  // 菜品
+  DRINK // 饮品
+}
+
+enum FoodStatus {
+  ACTIVE  // 活跃
+  PENDING // 待审核
+  HIDDEN  // 隐藏
+}
+
+enum UserRole {
+  USER  // 普通用户
+  ADMIN // 管理员
+}
+
+// 用户表
+model User {
+  id        String   @id @default(cuid())
+  phone     String?  @unique
+  email     String?  @unique
+  nickname  String?
+  avatar    String?
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联关系
+  preferences UserPreference?
+  uploads     Food[]
+
+  @@map("users")
+}
+
+// 用户偏好设置
+model UserPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  todayBlacklist      String[] // 今日黑名单 (食物ID数组)
+  permanentBlacklist  String[] // 永久黑名单 (食物ID数组)
+  lastActiveDate      DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // 关联关系
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// 食物表 (包含菜品和饮品)
+model Food {
+  id              String     @id @default(cuid())
+  name            String
+  type            FoodType
+  category        String     // 分类：川菜、粤菜、快餐、奶茶、咖啡等
+  description     String?
+  image           String?
+  tags            String[]   // 标签：辣、甜、清淡、便宜、贵等
+  isUserUploaded  Boolean    @default(false)
+  status          FoodStatus @default(ACTIVE)
+  uploadIp        String?    // 上传者IP (用于限制)
+  uploadedBy      String?    // 上传者ID
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // 关联关系
+  uploader User? @relation(fields: [uploadedBy], references: [id])
+
+  @@map("foods")
+}
+
+// 上传限制表
+model UploadLimit {
+  ip              String   @id
+  uploadCount     Int      @default(0)
+  lastUploadDate  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("upload_limits")
+}
+
+// 游客偏好设置 (基于设备指纹)
+model GuestPreference {
+  id                  String   @id @default(cuid())
+  deviceFingerprint   String   @unique
+  todayBlacklist      String[] // 今日黑名单
+  permanentBlacklist  String[] // 永久黑名单
+  lastActiveDate      DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("guest_preferences")
+}
