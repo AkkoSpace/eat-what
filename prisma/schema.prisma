@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -44,6 +44,8 @@ model User {
   // 关联关系
   preferences UserPreference?
   uploads     Food[]
+  recommendationStats RecommendationStat[]
+  ratings     FoodRating[]
 
   @@map("users")
 }
@@ -52,8 +54,8 @@ model User {
 model UserPreference {
   id                  String   @id @default(cuid())
   userId              String   @unique
-  todayBlacklist      String[] // 今日黑名单 (食物ID数组)
-  permanentBlacklist  String[] // 永久黑名单 (食物ID数组)
+  todayBlacklist      String   @default("[]") // 今日黑名单 (JSON字符串)
+  permanentBlacklist  String   @default("[]") // 永久黑名单 (JSON字符串)
   lastActiveDate      DateTime @default(now())
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -72,7 +74,7 @@ model Food {
   category        String     // 分类：川菜、粤菜、快餐、奶茶、咖啡等
   description     String?
   image           String?
-  tags            String[]   // 标签：辣、甜、清淡、便宜、贵等
+  tags            String     @default("[]") // 标签JSON字符串：辣、甜、清淡等
   isUserUploaded  Boolean    @default(false)
   status          FoodStatus @default(ACTIVE)
   uploadIp        String?    // 上传者IP (用于限制)
@@ -82,6 +84,12 @@ model Food {
 
   // 关联关系
   uploader User? @relation(fields: [uploadedBy], references: [id])
+
+  // 统计关联
+  stats FoodSelectionStat? @relation("FoodStats")
+  finalFoodStats RecommendationStat[] @relation("FinalFood")
+  finalDrinkStats RecommendationStat[] @relation("FinalDrink")
+  ratings FoodRating[] @relation("FoodRatings")
 
   @@map("foods")
 }
@@ -101,11 +109,144 @@ model UploadLimit {
 model GuestPreference {
   id                  String   @id @default(cuid())
   deviceFingerprint   String   @unique
-  todayBlacklist      String[] // 今日黑名单
-  permanentBlacklist  String[] // 永久黑名单
+  todayBlacklist      String   @default("[]") // 今日黑名单 (JSON字符串)
+  permanentBlacklist  String   @default("[]") // 永久黑名单 (JSON字符串)
   lastActiveDate      DateTime @default(now())
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   @@map("guest_preferences")
+}
+
+// 推荐统计表
+model RecommendationStat {
+  id              String   @id @default(cuid())
+  sessionId       String   // 会话ID，用于追踪一次推荐流程
+  deviceId        String?  // 设备指纹
+  userId          String?  // 用户ID（如果已登录）
+
+  // 推荐过程数据
+  totalAttempts   Int      @default(1) // 总推荐次数
+  finalFoodId     String?  // 最终选择的食物ID
+  finalDrinkId    String?  // 最终选择的饮品ID
+  isAccepted      Boolean  @default(false) // 是否接受推荐
+
+  // 推荐历史（JSON格式存储每次推荐的结果）
+  attemptHistory  String   @default("[]") // JSON array of {foodId, drinkId, timestamp}
+
+  // 用户行为
+  includeDrink    Boolean  @default(false) // 是否包含饮品
+  rejectionType   String?  // 拒绝类型：'today' | 'forever' | null
+
+  // 时间戳
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // 关联
+  finalFood       Food?    @relation("FinalFood", fields: [finalFoodId], references: [id])
+  finalDrink      Food?    @relation("FinalDrink", fields: [finalDrinkId], references: [id])
+  user            User?    @relation(fields: [userId], references: [id])
+
+  @@map("recommendation_stats")
+}
+
+// 食物选择统计表
+model FoodSelectionStat {
+  id              String   @id @default(cuid())
+  foodId          String
+
+  // 统计数据
+  recommendCount  Int      @default(0) // 被推荐次数
+  acceptCount     Int      @default(0) // 被接受次数
+  rejectTodayCount Int     @default(0) // 今天不要次数
+  rejectForeverCount Int   @default(0) // 永久不要次数
+
+  // 时间统计
+  lastRecommended DateTime?
+  lastAccepted    DateTime?
+  lastRejected    DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // 关联
+  food            Food     @relation("FoodStats", fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId])
+  @@map("food_selection_stats")
+}
+
+// 全局使用统计表
+model GlobalUsageStat {
+  id                String   @id @default(cuid())
+
+  // 基础统计
+  totalClicks       Int      @default(0) // 总点击次数（每次点击"吃什么"按钮）
+  totalUsers        Int      @default(0) // 总用户数（基于设备指纹）
+  totalSessions     Int      @default(0) // 总会话数
+  totalAttempts     Int      @default(0) // 总推荐尝试次数
+
+  // 结果统计
+  totalAccepted     Int      @default(0) // 总接受次数
+  totalRejected     Int      @default(0) // 总拒绝次数
+  totalAbandoned    Int      @default(0) // 总放弃次数
+
+  // 时间统计
+  lastUpdated       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("global_usage_stats")
+}
+
+// 每日使用统计表
+model DailyUsageStat {
+  id                String   @id @default(cuid())
+  date              String   @unique // YYYY-MM-DD 格式
+
+  // 当日统计
+  dailyClicks       Int      @default(0) // 当日点击次数
+  dailyUsers        Int      @default(0) // 当日活跃用户数
+  dailySessions     Int      @default(0) // 当日会话数
+  dailyAttempts     Int      @default(0) // 当日推荐尝试次数
+
+  // 当日结果
+  dailyAccepted     Int      @default(0) // 当日接受次数
+  dailyRejected     Int      @default(0) // 当日拒绝次数
+  dailyAbandoned    Int      @default(0) // 当日放弃次数
+
+  // 用户列表（JSON格式存储设备ID）
+  activeUsers       String   @default("[]") // 当日活跃用户设备ID列表
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("daily_usage_stats")
+}
+
+// 菜品评分表
+model FoodRating {
+  id              String   @id @default(cuid())
+  foodId          String
+  deviceId        String   // 设备指纹
+  userId          String?  // 用户ID（如果已登录）
+
+  // 评分类型：1 = 点赞，-1 = 点踩
+  rating          Int      // 1 或 -1
+
+  // IP地址（用于防滥用）
+  ipAddress       String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // 关联
+  food            Food     @relation("FoodRatings", fields: [foodId], references: [id], onDelete: Cascade)
+  user            User?    @relation(fields: [userId], references: [id])
+
+  // 确保同一设备对同一菜品只能评分一次
+  @@unique([foodId, deviceId])
+  @@map("food_ratings")
 }

@@ -5,8 +5,12 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('开始种子数据...')
 
-  // 清空现有数据
-  await prisma.food.deleteMany()
+  // 检查是否已有数据
+  const existingCount = await prisma.food.count()
+  if (existingCount > 0) {
+    console.log(`数据库中已有 ${existingCount} 条数据，跳过种子数据插入`)
+    return
+  }
   
   // 菜品数据
   const dishes = [
@@ -79,6 +83,7 @@ async function main() {
     await prisma.food.create({
       data: {
         ...dish,
+        tags: JSON.stringify(dish.tags), // 转换为 JSON 字符串
         type: FoodType.DISH,
         isUserUploaded: false,
       },
@@ -90,6 +95,7 @@ async function main() {
     await prisma.food.create({
       data: {
         ...drink,
+        tags: JSON.stringify(drink.tags), // 转换为 JSON 字符串
         type: FoodType.DRINK,
         isUserUploaded: false,
       },

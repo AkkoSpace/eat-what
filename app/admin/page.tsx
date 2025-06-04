@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useFoodsCache } from '@/hooks/useFoodsCache'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,8 +10,12 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Plus, Edit, Trash2, Search, Filter, Utensils, Coffee } from 'lucide-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Plus, Edit, Trash2, Search, Filter, Utensils, Coffee, ArrowLeft, MoreHorizontal, Copy, Eye, RefreshCw, TrendingUp } from 'lucide-react'
 import { Food, FoodType, FoodStatus } from '@/lib/types'
+import Link from 'next/link'
 
 interface FoodWithUploader extends Food {
   uploader?: {
@@ -31,15 +36,27 @@ interface FoodsResponse {
 }
 
 export default function AdminPage() {
+  // 使用缓存 Hook
+  const {
+    allFoods,
+    loading,
+    fetchAllFoods,
+    getFilteredFoods,
+    addFood,
+    updateFood,
+    removeFood,
+    removeFoods,
+    getStats
+  } = useFoodsCache()
+
   const [foods, setFoods] = useState<FoodWithUploader[]>([])
-  const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
     totalPages: 0
   })
-  
+
   // 筛选状态
   const [filters, setFilters] = useState({
     type: 'ALL',
@@ -59,34 +76,44 @@ export default function AdminPage() {
     status: 'ACTIVE' as FoodStatus
   })
 
-  // 获取食物列表
-  const fetchFoods = async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        ...(filters.type !== 'ALL' && { type: filters.type }),
-        ...(filters.status !== 'ALL' && { status: filters.status })
-      })
-      
-      const response = await fetch(`/api/foods?${params}`)
-      const result = await response.json()
-      
-      if (result.success) {
-        setFoods(result.data.foods)
-        setPagination(result.data.pagination)
-      }
-    } catch (error) {
-      console.error('获取食物列表失败:', error)
-    } finally {
-      setLoading(false)
+  // 批量操作状态
+  const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [selectAll, setSelectAll] = useState(false)
+
+  // 安全解析 tags 的辅助函数
+  const parseTags = (tags: any): string[] => {
+    if (Array.isArray(tags)) {
+      return tags
     }
+    if (typeof tags === 'string') {
+      try {
+        const parsed = JSON.parse(tags)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        // 如果不是有效的 JSON，尝试按逗号分割
+        return tags.split(',').map(tag => tag.trim()).filter(Boolean)
+      }
+    }
+    return []
   }
 
+  // 应用筛选和分页（前端处理）
   useEffect(() => {
-    fetchFoods()
-  }, [pagination.page, filters])
+    if (allFoods.length > 0) {
+      const result = getFilteredFoods(filters, pagination)
+      setFoods(result.foods)
+      setPagination(prev => ({
+        ...prev,
+        total: result.pagination.total,
+        totalPages: result.pagination.totalPages
+      }))
+    }
+  }, [allFoods, filters, pagination.page, pagination.limit, getFilteredFoods])
+
+  // 重置到第一页当筛选条件改变时
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }))
+  }, [filters.type, filters.status, filters.search])
 
   // 打开新增对话框
   const openAddDialog = () => {
@@ -110,7 +137,7 @@ export default function AdminPage() {
       type: food.type,
       category: food.category,
       description: food.description || '',
-      tags: food.tags?.join(', ') || '',
+      tags: parseTags(food.tags).join(', '),
       status: food.status
     })
     setDialogOpen(true)
@@ -126,18 +153,24 @@ export default function AdminPage() {
 
       const url = editingFood ? `/api/foods/${editingFood.id}` : '/api/foods'
       const method = editingFood ? 'PUT' : 'POST'
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
         setDialogOpen(false)
-        fetchFoods()
+
+        // 更新缓存
+        if (editingFood) {
+          updateFood(result.data)
+        } else {
+          addFood(result.data)
+        }
       } else {
         alert(result.error || '保存失败')
       }
@@ -150,16 +183,19 @@ export default function AdminPage() {
   // 删除食物
   const deleteFood = async (id: string) => {
     if (!confirm('确定要删除这个食物吗？')) return
-    
+
     try {
       const response = await fetch(`/api/foods/${id}`, {
         method: 'DELETE'
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
-        fetchFoods()
+        // 从缓存中删除
+        removeFood(id)
+        // 如果当前选中包含这个项目，也要移除
+        setSelectedItems(prev => prev.filter(item => item !== id))
       } else {
         alert(result.error || '删除失败')
       }
@@ -169,19 +205,125 @@ export default function AdminPage() {
     }
   }
 
+  // 批量操作处理
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked)
+    if (checked) {
+      setSelectedItems(foods.map(food => food.id))
+    } else {
+      setSelectedItems([])
+    }
+  }
+
+  const handleSelectItem = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedItems(prev => [...prev, id])
+    } else {
+      setSelectedItems(prev => prev.filter(item => item !== id))
+      setSelectAll(false)
+    }
+  }
+
+  // 批量删除
+  const batchDelete = async () => {
+    if (selectedItems.length === 0) return
+    if (!confirm(`确定要删除选中的 ${selectedItems.length} 个食物吗？`)) return
+
+    try {
+      await Promise.all(
+        selectedItems.map(id =>
+          fetch(`/api/foods/${id}`, { method: 'DELETE' })
+        )
+      )
+
+      // 从缓存中批量删除
+      removeFoods(selectedItems)
+      setSelectedItems([])
+      setSelectAll(false)
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      alert('批量删除失败')
+    }
+  }
+
+  // 批量审核通过
+  const batchApprove = async () => {
+    if (selectedItems.length === 0) return
+
+    const pendingItems = selectedItems.filter(id => {
+      const food = foods.find(f => f.id === id)
+      return food?.status === 'PENDING'
+    })
+
+    if (pendingItems.length === 0) {
+      alert('选中的项目中没有待审核的菜品')
+      return
+    }
+
+    if (!confirm(`确定要通过选中的 ${pendingItems.length} 个待审核菜品吗？`)) return
+
+    try {
+      await Promise.all(
+        pendingItems.map(id =>
+          fetch(`/api/foods/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'ACTIVE' })
+          })
+        )
+      )
+
+      // 刷新数据
+      await fetchAllFoods(true)
+      setSelectedItems([])
+      setSelectAll(false)
+      alert(`成功通过 ${pendingItems.length} 个菜品的审核`)
+    } catch (error) {
+      console.error('批量审核失败:', error)
+      alert('批量审核失败')
+    }
+  }
+
+  // 复制食物信息
+  const copyFood = async (food: FoodWithUploader) => {
+    const foodInfo = `名称: ${food.name}\n类型: ${food.type === 'DISH' ? '菜品' : '饮品'}\n分类: ${food.category}\n描述: ${food.description || '暂无描述'}\n标签: ${parseTags(food.tags).join(', ')}`
+
+    try {
+      await navigator.clipboard.writeText(foodInfo)
+      alert('食物信息已复制到剪贴板')
+    } catch (error) {
+      console.error('复制失败:', error)
+      alert('复制失败')
+    }
+  }
+
+  // 复制为新食物
+  const duplicateFood = (food: FoodWithUploader) => {
+    setEditingFood(null)
+    setFormData({
+      name: `${food.name} (副本)`,
+      type: food.type,
+      category: food.category,
+      description: food.description || '',
+      tags: parseTags(food.tags).join(', '),
+      status: 'PENDING' as FoodStatus // 副本默认为待审核状态
+    })
+    setDialogOpen(true)
+  }
+
   const getStatusBadge = (status: FoodStatus) => {
     const variants = {
       ACTIVE: 'default',
       PENDING: 'secondary',
       HIDDEN: 'destructive'
     } as const
-    
+
     const labels = {
       ACTIVE: '活跃',
       PENDING: '待审核',
       HIDDEN: '隐藏'
     }
-    
+
     return (
       <Badge variant={variants[status]}>
         {labels[status]}
@@ -190,25 +332,37 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8">
         {/* 头部 */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            🛠️ 菜品管理
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            管理系统中的所有菜品和饮品
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+              🛠️ 菜品管理
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              管理系统中的所有菜品和饮品
+            </p>
+          </div>
+          <div className="flex space-x-2">
+            <Link href="/stats">
+              <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>统计</span>
+              </Button>
+            </Link>
+            <Link href="/">
+              <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                <ArrowLeft className="w-4 h-4" />
+                <span>返回首页</span>
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* 操作栏 */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <Button onClick={openAddDialog} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
-            添加菜品
-          </Button>
-          
+        <div className="flex flex-col lg:flex-row gap-4 mb-6">
+          {/* 搜索和筛选 */}
           <div className="flex flex-1 gap-4">
             <div className="flex-1">
               <Input
@@ -218,7 +372,7 @@ export default function AdminPage() {
                 className="w-full"
               />
             </div>
-            
+
             <Select value={filters.type} onValueChange={(value) => setFilters(prev => ({ ...prev, type: value }))}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -229,7 +383,7 @@ export default function AdminPage() {
                 <SelectItem value="DRINK">饮品</SelectItem>
               </SelectContent>
             </Select>
-            
+
             <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -242,88 +396,282 @@ export default function AdminPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* 操作按钮 */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => fetchAllFoods(true)}
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+
+            {selectedItems.length > 0 && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={batchApprove}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                >
+                  <Eye className="w-4 h-4" />
+                  批量通过 ({selectedItems.length})
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={batchDelete}
+                  className="flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  删除选中 ({selectedItems.length})
+                </Button>
+              </>
+            )}
+
+            <Button onClick={openAddDialog} className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              添加菜品
+            </Button>
+          </div>
         </div>
 
         {/* 统计信息 */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold">{pagination.total}</div>
-              <div className="text-sm text-gray-600">总数量</div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">总数量</CardTitle>
+              <Utensils className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{getStats().total}</div>
+              <p className="text-xs text-muted-foreground">
+                系统中的所有食物
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">菜品数量</CardTitle>
+              <Utensils className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{getStats().dishes}</div>
+              <p className="text-xs text-muted-foreground">
+                主食和菜品
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">饮品数量</CardTitle>
+              <Coffee className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{getStats().drinks}</div>
+              <p className="text-xs text-muted-foreground">
+                饮料和饮品
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">待审核</CardTitle>
+              <Eye className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">{getStats().pending}</div>
+              <p className="text-xs text-muted-foreground">
+                等待审核的菜品
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">已选择</CardTitle>
+              <Checkbox className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{selectedItems.length}</div>
+              <p className="text-xs text-muted-foreground">
+                当前选中的项目
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* 食物列表 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {loading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-4">
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded"></div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            foods.map((food) => (
-              <Card key={food.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      {food.type === 'DISH' ? (
-                        <Utensils className="w-4 h-4 text-orange-500" />
-                      ) : (
-                        <Coffee className="w-4 h-4 text-blue-500" />
-                      )}
-                      <CardTitle className="text-lg">{food.name}</CardTitle>
-                    </div>
-                    {getStatusBadge(food.status)}
-                  </div>
-                  <CardDescription>{food.category}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                    {food.description || '暂无描述'}
-                  </p>
-                  
-                  {food.tags && food.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {food.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
+        {/* 食物表格 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Utensils className="w-5 h-5 text-orange-500" />
+              <span>菜品列表</span>
+            </CardTitle>
+            <CardDescription>
+              管理和编辑系统中的所有菜品和饮品
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectAll}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>名称</TableHead>
+                  <TableHead>类型</TableHead>
+                  <TableHead>分类</TableHead>
+                  <TableHead>描述</TableHead>
+                  <TableHead>标签</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>来源</TableHead>
+                  <TableHead className="w-24">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                    </TableRow>
+                  ))
+                ) : foods.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                      暂无数据
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  foods.map((food) => (
+                    <TableRow key={food.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedItems.includes(food.id)}
+                          onCheckedChange={(checked) => handleSelectItem(food.id, checked as boolean)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {food.type === 'DISH' ? (
+                            <Utensils className="w-4 h-4 text-orange-500" />
+                          ) : (
+                            <Coffee className="w-4 h-4 text-blue-500" />
+                          )}
+                          {food.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={food.type === 'DISH' ? 'default' : 'secondary'}>
+                          {food.type === 'DISH' ? '菜品' : '饮品'}
                         </Badge>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="text-xs text-gray-500">
-                      {food.isUserUploaded ? '用户上传' : '系统预置'}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditDialog(food)}
-                      >
-                        <Edit className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteFood(food.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
+                      </TableCell>
+                      <TableCell>{food.category}</TableCell>
+                      <TableCell className="max-w-xs">
+                        <div className="truncate" title={food.description || ''}>
+                          {food.description || '暂无描述'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-xs">
+                          {(() => {
+                            const tags = parseTags(food.tags)
+                            return (
+                              <>
+                                {tags.slice(0, 3).map((tag: string) => (
+                                  <Badge key={tag} variant="outline" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {tags.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{tags.length - 3}
+                                  </Badge>
+                                )}
+                              </>
+                            )
+                          })()}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(food.status)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant={food.isUserUploaded ? 'secondary' : 'outline'}>
+                            {food.isUserUploaded ? '用户上传' : '系统预置'}
+                          </Badge>
+                          {food.isUserUploaded && food.uploader && (
+                            <div className="text-xs text-gray-500">
+                              <div className="flex items-center gap-1">
+                                <span>👤</span>
+                                <span>{food.uploader.nickname || '匿名用户'}</span>
+                              </div>
+                              {food.uploadIp && (
+                                <div className="flex items-center gap-1">
+                                  <span>🌐</span>
+                                  <span>{food.uploadIp}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">打开菜单</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>操作</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => copyFood(food)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              复制信息
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicateFood(food)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              复制为新食物
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditDialog(food)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              编辑
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => deleteFood(food.id)}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
         {/* 分页 */}
         {pagination.totalPages > 1 && (

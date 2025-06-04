@@ -2,17 +2,67 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { FoodType } from '@prisma/client'
 
+// 确保 API 路由是动态的
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const all = searchParams.get('all') === 'true' // 是否获取所有数据
+
+    if (all) {
+      // 获取所有数据，用于前端缓存
+      const foods = await prisma.food.findMany({
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          uploader: {
+            select: {
+              id: true,
+              nickname: true,
+              email: true
+            }
+          }
+        }
+      })
+
+      // 转换 tags 从 JSON 字符串到数组
+      const foodsWithTags = foods.map(food => ({
+        ...food,
+        tags: JSON.parse(food.tags || '[]')
+      }))
+
+      const response = NextResponse.json({
+        success: true,
+        data: foodsWithTags
+      })
+
+      // 添加 CORS 头部
+      response.headers.set('Access-Control-Allow-Origin', '*')
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+      return response
+    }
+
+    // 原有的分页逻辑（保留兼容性）
     const type = searchParams.get('type') as FoodType | null
     const status = searchParams.get('status') || 'ACTIVE'
+    const search = searchParams.get('search') || ''
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '50')
 
     const where = {
       ...(status !== 'ALL' && { status: status as any }),
-      ...(type && { type })
+      ...(type && { type }),
+      ...(search && {
+        OR: [
+          { name: { contains: search } },
+          { category: { contains: search } },
+          { description: { contains: search } }
+        ]
+      })
     }
 
     const [foods, total] = await Promise.all([
@@ -36,10 +86,16 @@ export async function GET(request: NextRequest) {
       prisma.food.count({ where })
     ])
 
+    // 转换 tags
+    const foodsWithTags = foods.map(food => ({
+      ...food,
+      tags: JSON.parse(food.tags || '[]')
+    }))
+
     return NextResponse.json({
       success: true,
       data: {
-        foods,
+        foods: foodsWithTags,
         pagination: {
           page,
           limit,
@@ -77,7 +133,7 @@ export async function POST(request: NextRequest) {
         type,
         category,
         description,
-        tags: tags || [],
+        tags: JSON.stringify(tags || []), // 转换为 JSON 字符串
         isUserUploaded: false, // 管理员添加的标记为非用户上传
         status: 'ACTIVE'
       }

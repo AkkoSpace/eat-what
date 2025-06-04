@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 确保 API 路由是动态的
+export const dynamic = 'force-dynamic'
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -16,7 +19,7 @@ export async function PUT(
         type,
         category,
         description,
-        tags: tags || [],
+        tags: JSON.stringify(tags || []), // 转换为 JSON 字符串
         status
       }
     })
