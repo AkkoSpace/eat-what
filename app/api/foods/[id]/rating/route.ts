@@ -18,10 +18,10 @@ function generateDeviceFingerprint(request: NextRequest): string {
 // 获取菜品评分统计
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const foodId = params.id
+    const { id: foodId } = await params
 
     // 获取评分统计
     const ratings = await prisma.foodRating.findMany({
@@ -74,10 +74,10 @@ export async function GET(
 // 提交评分
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const foodId = params.id
+    const { id: foodId } = await params
     const body = await request.json()
     const { rating } = body
 
@@ -167,10 +167,10 @@ export async function POST(
 // 删除评分
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const foodId = params.id
+    const { id: foodId } = await params
     const deviceId = generateDeviceFingerprint(request)
 
     // 删除评分

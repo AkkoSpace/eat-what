@@ -34,6 +34,7 @@ export default function Home() {
     drink?: Food
   } | null>(null)
 
+
   // 上传相关状态
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [uploadText, setUploadText] = useState('')
@@ -118,10 +119,10 @@ export default function Home() {
 
   const handleAnimationComplete = () => {
     setShowAnimation(false)
-    setRecommendation(animationData)
     setIsLoading(false)
 
-    // 获取评分信息
+    // 只获取评分信息，不设置推荐结果
+    // 让用户在FoodRoulette组件中进行操作
     if (animationData) {
       fetchRating(animationData.food.id, 'food')
       if (animationData.drink) {
@@ -131,14 +132,39 @@ export default function Home() {
   }
 
   const handleReject = async (type: 'today' | 'forever') => {
+    // 处理来自FoodRoulette组件的拒绝
+    if (animationData) {
+      // 记录拒绝统计
+      await recordRejection(animationData.food, animationData.drink, type)
+      console.log(`${type === 'today' ? '今天' : '永久'}不要这个`)
+      setAnimationData(null)
+      return
+    }
+
+    // 处理来自主页面结果的拒绝
     if (recommendation) {
       // 记录拒绝统计
       await recordRejection(recommendation.food, recommendation.drink, type)
-
-      // TODO: 实现黑名单逻辑
       console.log(`${type === 'today' ? '今天' : '永久'}不要这个`)
       setRecommendation(null)
     }
+  }
+
+  const handleAcceptResult = async () => {
+    if (animationData) {
+      // 记录接受统计
+      await recordAcceptance(animationData.food, animationData.drink)
+      // 设置推荐结果，切换到主页面的结果展示
+      setRecommendation(animationData)
+      setAnimationData(null)
+      console.log('用户接受了推荐')
+    }
+  }
+
+  const handleTryAgain = () => {
+    setRecommendation(null)
+    setAnimationData(null)
+    handleRecommend()
   }
 
   // 新增：处理用户接受推荐
@@ -149,6 +175,76 @@ export default function Home() {
 
       console.log('用户选择了:', recommendation.food.name, recommendation.drink?.name)
       // 可以在这里添加更多的接受逻辑，比如显示感谢信息
+    }
+  }
+
+  // 新增：独立重新推荐菜品
+  const handleRecommendFood = async () => {
+    setIsLoading(true)
+    setError(null)
+    setRecommendation(null)
+
+    try {
+      const response = await fetch('/api/recommend?includeDrink=false')
+      const result = await response.json()
+
+      if (result.success) {
+        const newAnimationData = {
+          food: result.data.food,
+          drink: recommendation?.drink || null // 保持原有饮品
+        }
+        setAnimationData(newAnimationData)
+        setShowAnimation(true)
+
+        // 记录使用统计
+        await fetch('/api/stats/usage', { method: 'POST' })
+
+        setTimeout(() => {
+          setShowAnimation(false)
+        }, 2000)
+      } else {
+        setError(result.error || '推荐失败，请稍后重试')
+      }
+    } catch (error) {
+      console.error('推荐失败:', error)
+      setError('网络错误，请稍后重试')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 新增：独立重新推荐饮品
+  const handleRecommendDrink = async () => {
+    setIsLoading(true)
+    setError(null)
+    setRecommendation(null)
+
+    try {
+      const response = await fetch('/api/recommend?includeDrink=true&onlyDrink=true')
+      const result = await response.json()
+
+      if (result.success) {
+        const newAnimationData = {
+          food: recommendation?.food || null, // 保持原有菜品
+          drink: result.data.drink
+        }
+        setAnimationData(newAnimationData)
+        setShowAnimation(true)
+
+        // 记录使用统计
+        await fetch('/api/stats/usage', { method: 'POST' })
+
+        setTimeout(() => {
+          setShowAnimation(false)
+        }, 2000)
+      } else {
+        setError(result.error || '推荐失败，请稍后重试')
+      }
+    } catch (error) {
+      console.error('推荐失败:', error)
+      setError('网络错误，请稍后重试')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -381,368 +477,182 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 主要内容区域 */}
-        <div className="max-w-2xl mx-auto">
-          {showAnimation && animationData ? (
-            /* 开箱动画区域 */
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-6">
-                  🎰 开箱中...
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  正在为你随机选择美食
-                </p>
-              </div>
-
-              {/* 菜品动画 */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center">
-                  🍽️ 今天吃什么
-                </h3>
-                <FoodRoulette
-                  foods={allFoods.length > 0 ? allFoods : [animationData.food]}
-                  selectedFood={animationData.food}
-                  type="food"
-                  onAnimationComplete={animationData.drink ? () => {} : handleAnimationComplete}
-                />
-              </div>
-
-              {/* 饮品动画 */}
-              {animationData.drink && (
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-3 text-center">
-                    🥤 配点什么喝
-                  </h3>
-                  <FoodRoulette
-                    foods={allDrinks.length > 0 ? allDrinks : [animationData.drink]}
-                    selectedFood={animationData.drink}
-                    type="drink"
-                    onAnimationComplete={handleAnimationComplete}
-                  />
-                </div>
-              )}
-            </div>
-          ) : !recommendation ? (
-            /* 推荐按钮区域 */
-            <div className="text-center space-y-8">
-              <div className="space-y-4">
-                <div className="flex items-center justify-center space-x-3">
-                  <Switch
-                    id="include-drink"
-                    checked={includeDrink}
-                    onCheckedChange={setIncludeDrink}
-                  />
-                  <label
-                    htmlFor="include-drink"
-                    className="text-lg font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                  >
-                    同时推荐喝的
-                  </label>
-                </div>
-              </div>
-
-              <Button
-                size="xl"
-                onClick={(e) => {
-                  console.log('🎯 Button 被点击了！', e)
-                  handleRecommend()
-                }}
-                disabled={isLoading}
-                className="w-64 h-20 text-2xl font-bold bg-green-600 hover:bg-green-700 text-white border border-green-500"
-                style={{ position: 'relative', zIndex: 10 }}
-              >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <Dice6 className="animate-spin" />
-                    <span>正在选择...</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Utensils />
-                    <span>吃什么？</span>
-                  </div>
-                )}
-              </Button>
-
-              <p className="text-gray-500 dark:text-gray-400">
-                点击按钮，让我们为你决定今天吃什么！
-              </p>
-
-              {/* 用户上传区域 */}
-              <div className="mt-8 pt-8 border-t border-gray-200">
+        {/* 主要内容区域 - 无边框设计 */}
+        <div className="max-w-4xl mx-auto">
+          <div className="min-h-[600px] flex flex-col justify-center">
+            {animationData ? (
+              /* 推荐过程和结果区域 */
+              <div className="space-y-8">
                 <div className="text-center">
-                  <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="flex items-center space-x-2"
-                        style={{ position: 'relative', zIndex: 10 }}
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>贡献菜品</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center space-x-2">
-                          <ChefHat className="w-5 h-5 text-orange-500" />
-                          <span>贡献菜品</span>
-                        </DialogTitle>
-                        <DialogDescription>
-                          帮助我们丰富菜品库，让更多人受益！<br />
-                          <span className="text-orange-600 font-medium">提交后需要管理员审核通过才会显示</span>
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 mb-3 block">
-                            类型选择
-                          </label>
-                          <div className="flex space-x-6">
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="dish"
-                                name="uploadType"
-                                value="DISH"
-                                checked={uploadType === 'DISH'}
-                                onChange={(e) => setUploadType(e.target.value as 'DISH' | 'DRINK')}
-                                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 focus:ring-orange-500 focus:ring-2"
-                              />
-                              <label
-                                htmlFor="dish"
-                                className="text-sm font-medium text-gray-700 cursor-pointer flex items-center space-x-2"
-                              >
-                                <span>🍽️</span>
-                                <span>菜品</span>
-                              </label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <input
-                                type="radio"
-                                id="drink"
-                                name="uploadType"
-                                value="DRINK"
-                                checked={uploadType === 'DRINK'}
-                                onChange={(e) => setUploadType(e.target.value as 'DISH' | 'DRINK')}
-                                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 focus:ring-orange-500 focus:ring-2"
-                              />
-                              <label
-                                htmlFor="drink"
-                                className="text-sm font-medium text-gray-700 cursor-pointer flex items-center space-x-2"
-                              >
-                                <span>🥤</span>
-                                <span>饮品</span>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-medium text-gray-700 mb-2 block">
-                            {uploadType === 'DISH' ? '菜品' : '饮品'}名称（每行一个，或用逗号分隔）
-                          </label>
-                          <Textarea
-                            value={uploadText}
-                            onChange={(e) => setUploadText(e.target.value)}
-                            placeholder={uploadType === 'DISH'
-                              ? "例如：\n红烧肉\n宫保鸡丁\n麻婆豆腐\n\n或：红烧肉,宫保鸡丁,麻婆豆腐"
-                              : "例如：\n可乐\n雪碧\n橙汁\n\n或：可乐,雪碧,橙汁"
-                            }
-                            rows={6}
-                            className="resize-none"
-                          />
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={handleBatchUpload}
-                            disabled={isUploading || !uploadText.trim()}
-                            className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
-                          >
-                            {isUploading ? (
-                              <>
-                                <Upload className="w-4 h-4 mr-2 animate-pulse" />
-                                提交中...
-                              </>
-                            ) : (
-                              <>
-                                <Upload className="w-4 h-4 mr-2" />
-                                提交审核
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setUploadDialogOpen(false)
-                              setUploadText('')
-                              setUploadResult(null)
-                              setError(null)
-                            }}
-                          >
-                            取消
-                          </Button>
-                        </div>
-
-                        {/* 上传结果 */}
-                        {uploadResult && (
-                          <div className="space-y-2">
-                            {uploadResult.success > 0 && (
-                              <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
-                                ✅ 成功提交 {uploadResult.success} 个{uploadType === 'DISH' ? '菜品' : '饮品'}，等待管理员审核
-                              </div>
-                            )}
-                            {uploadResult.duplicates.length > 0 && (
-                              <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded text-sm">
-                                ⚠️ 重复的{uploadType === 'DISH' ? '菜品' : '饮品'}：{uploadResult.duplicates.join('、')}
-                              </div>
-                            )}
-                            {uploadResult.errors.length > 0 && (
-                              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                                ❌ 失败：{uploadResult.errors.join('、')}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <p className="text-sm text-gray-500 mt-2">
-                    帮助我们丰富菜品库，让更多人受益
+                  <h2 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
+                    {showAnimation ? '🎲 正在推荐...' : '🎉 推荐结果'}
+                  </h2>
+                  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+                    {showAnimation ? '正在为你挑选美食' : '为你精心挑选的美食'}
                   </p>
                 </div>
-              </div>
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                  {error}
+                {/* 菜品展示区域 */}
+                <div className="space-y-6">
+                  <h3 className="text-2xl font-bold text-center text-gray-800 dark:text-gray-200 flex items-center justify-center space-x-2">
+                    <span>🍽️</span>
+                    <span>今天吃什么</span>
+                  </h3>
+                  <FoodRoulette
+                    foods={allFoods.length > 0 ? allFoods : [animationData.food]}
+                    selectedFood={animationData.food}
+                    type="food"
+                    onAnimationComplete={animationData.drink ? () => {} : handleAnimationComplete}
+                    onAccept={handleAcceptResult}
+                    onReject={handleReject}
+                    onTryAgain={handleTryAgain}
+                    onRate={handleRating}
+                  />
                 </div>
-              )}
-            </div>
-          ) : (
-            /* 推荐结果区域 */
-            <div className="space-y-6">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-                  🎉 今天就吃这个！
-                </h2>
+
+                {/* 饮品展示区域 */}
+                {animationData.drink && (
+                  <div className="space-y-6">
+                    <h3 className="text-2xl font-bold text-center text-gray-800 dark:text-gray-200 flex items-center justify-center space-x-2">
+                      <span>🥤</span>
+                      <span>配点什么喝</span>
+                    </h3>
+                    <FoodRoulette
+                      foods={allDrinks.length > 0 ? allDrinks : [animationData.drink]}
+                      selectedFood={animationData.drink}
+                      type="drink"
+                      onAnimationComplete={handleAnimationComplete}
+                      onAccept={handleAcceptResult}
+                      onReject={handleReject}
+                      onTryAgain={handleTryAgain}
+                      onRate={handleRating}
+                    />
+                  </div>
+                )}
               </div>
-
-              {/* 食物推荐卡片 */}
-              <Card className="border-2 border-orange-200 shadow-lg">
-                <CardHeader className="text-center">
-                  <CardTitle className="text-2xl flex items-center justify-center space-x-2">
-                    <Utensils className="text-orange-500" />
-                    <span>{recommendation.food.name}</span>
-                  </CardTitle>
-                  <CardDescription className="text-lg">
-                    {recommendation.food.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* 标签区域 */}
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <Badge variant="secondary">{recommendation.food.category}</Badge>
-                    {recommendation.food.tags && recommendation.food.tags.map((tag: string) => (
-                      <Badge key={tag} variant="outline">{tag}</Badge>
-                    ))}
-                  </div>
-
-                  {/* 来源信息 */}
+              ) : recommendation ? (
+                /* 最终确认结果区域 */
+                <div className="space-y-6">
                   <div className="text-center">
-                    <Badge
-                      variant={recommendation.food.isUserUploaded ? "default" : "outline"}
-                      className={recommendation.food.isUserUploaded ? "bg-blue-100 text-blue-800 border-blue-200" : "bg-gray-100 text-gray-600"}
-                    >
-                      {recommendation.food.isUserUploaded ? "👥 用户贡献" : "🏠 系统推荐"}
-                    </Badge>
+                    <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+                      🎉 今天就吃这个！
+                    </h2>
                   </div>
 
-                  {/* 点赞点踩区域 */}
-                  <div className="flex items-center justify-center space-x-4 pt-2">
-                    <Button
-                      variant={foodRating?.userRating === 1 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleRating(recommendation.food.id, 1, 'food')}
-                      className="flex items-center space-x-1"
-                    >
-                      <ThumbsUp className="w-4 h-4" />
-                      <span>{foodRating?.likes || 0}</span>
-                    </Button>
-                    <Button
-                      variant={foodRating?.userRating === -1 ? "destructive" : "outline"}
-                      size="sm"
-                      onClick={() => handleRating(recommendation.food.id, -1, 'food')}
-                      className="flex items-center space-x-1"
-                    >
-                      <ThumbsDown className="w-4 h-4" />
-                      <span>{foodRating?.dislikes || 0}</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  {/* 食物推荐区域 */}
+                  <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-8 shadow-xl">
+                    <div className="text-center mb-6">
+                      <div className="inline-flex items-center justify-center w-20 h-20 bg-orange-100 dark:bg-orange-900 rounded-full mb-4">
+                        <Utensils className="w-10 h-10 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <h3 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                        {recommendation.food.name}
+                      </h3>
+                      <p className="text-lg text-gray-600 dark:text-gray-400">
+                        {recommendation.food.description}
+                      </p>
+                    </div>
 
-              {/* 饮品推荐卡片 */}
-              {recommendation.drink && (
-                <Card className="border-2 border-blue-200 shadow-lg">
-                  <CardHeader className="text-center">
-                    <CardTitle className="text-2xl flex items-center justify-center space-x-2">
-                      <Coffee className="text-blue-500" />
-                      <span>{recommendation.drink.name}</span>
-                    </CardTitle>
-                    <CardDescription className="text-lg">
-                      {recommendation.drink.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
                     {/* 标签区域 */}
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      <Badge variant="secondary">{recommendation.drink.category}</Badge>
-                      {recommendation.drink.tags && recommendation.drink.tags.map((tag: string) => (
-                        <Badge key={tag} variant="outline">{tag}</Badge>
+                    <div className="flex flex-wrap gap-3 justify-center mb-6">
+                      <Badge variant="secondary" className="text-sm px-4 py-2">{recommendation.food.category}</Badge>
+                      {recommendation.food.tags && recommendation.food.tags.map((tag: string) => (
+                        <Badge key={tag} variant="outline" className="text-sm px-4 py-2">{tag}</Badge>
                       ))}
                     </div>
 
                     {/* 来源信息 */}
-                    <div className="text-center">
+                    <div className="text-center mb-6">
                       <Badge
-                        variant={recommendation.drink.isUserUploaded ? "default" : "outline"}
-                        className={recommendation.drink.isUserUploaded ? "bg-blue-100 text-blue-800 border-blue-200" : "bg-gray-100 text-gray-600"}
+                        variant={recommendation.food.isUserUploaded ? "default" : "outline"}
+                        className={`text-sm px-4 py-2 ${recommendation.food.isUserUploaded ? "bg-orange-100 text-orange-800 border-orange-200" : "bg-gray-100 text-gray-600"}`}
                       >
-                        {recommendation.drink.isUserUploaded ? "👥 用户贡献" : "🏠 系统推荐"}
+                        {recommendation.food.isUserUploaded ? "👥 用户贡献" : "🏠 系统推荐"}
                       </Badge>
                     </div>
 
                     {/* 点赞点踩区域 */}
-                    <div className="flex items-center justify-center space-x-4 pt-2">
+                    <div className="flex items-center justify-center space-x-6">
                       <Button
-                        variant={drinkRating?.userRating === 1 ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleRating(recommendation.drink.id, 1, 'drink')}
-                        className="flex items-center space-x-1"
+                        variant={foodRating?.userRating === 1 ? "default" : "outline"}
+                        size="lg"
+                        onClick={() => handleRating(recommendation.food.id, 1, 'food')}
+                        className="flex items-center space-x-2 px-6 py-3"
                       >
-                        <ThumbsUp className="w-4 h-4" />
-                        <span>{drinkRating?.likes || 0}</span>
+                        <ThumbsUp className="w-5 h-5" />
+                        <span className="font-semibold">{foodRating?.likes || 0}</span>
                       </Button>
                       <Button
-                        variant={drinkRating?.userRating === -1 ? "destructive" : "outline"}
-                        size="sm"
-                        onClick={() => handleRating(recommendation.drink.id, -1, 'drink')}
-                        className="flex items-center space-x-1"
+                        variant={foodRating?.userRating === -1 ? "destructive" : "outline"}
+                        size="lg"
+                        onClick={() => handleRating(recommendation.food.id, -1, 'food')}
+                        className="flex items-center space-x-2 px-6 py-3"
                       >
-                        <ThumbsDown className="w-4 h-4" />
-                        <span>{drinkRating?.dislikes || 0}</span>
+                        <ThumbsDown className="w-5 h-5" />
+                        <span className="font-semibold">{foodRating?.dislikes || 0}</span>
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
 
-              {/* 操作按钮 */}
-              <div className="flex flex-col gap-4 justify-center">
+                  {/* 饮品推荐区域 */}
+                  {recommendation.drink && (
+                    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-800 dark:to-gray-700 rounded-3xl p-8 shadow-xl">
+                      <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full mb-4">
+                          <Coffee className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <h3 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                          {recommendation.drink.name}
+                        </h3>
+                        <p className="text-lg text-gray-600 dark:text-gray-400">
+                          {recommendation.drink.description}
+                        </p>
+                      </div>
+
+                      {/* 标签区域 */}
+                      <div className="flex flex-wrap gap-3 justify-center mb-6">
+                        <Badge variant="secondary" className="text-sm px-4 py-2">{recommendation.drink.category}</Badge>
+                        {recommendation.drink.tags && recommendation.drink.tags.map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="text-sm px-4 py-2">{tag}</Badge>
+                        ))}
+                      </div>
+
+                      {/* 来源信息 */}
+                      <div className="text-center mb-6">
+                        <Badge
+                          variant={recommendation.drink.isUserUploaded ? "default" : "outline"}
+                          className={`text-sm px-4 py-2 ${recommendation.drink.isUserUploaded ? "bg-blue-100 text-blue-800 border-blue-200" : "bg-gray-100 text-gray-600"}`}
+                        >
+                          {recommendation.drink.isUserUploaded ? "👥 用户贡献" : "🏠 系统推荐"}
+                        </Badge>
+                      </div>
+
+                      {/* 点赞点踩区域 */}
+                      <div className="flex items-center justify-center space-x-6">
+                        <Button
+                          variant={drinkRating?.userRating === 1 ? "default" : "outline"}
+                          size="lg"
+                          onClick={() => handleRating(recommendation.drink.id, 1, 'drink')}
+                          className="flex items-center space-x-2 px-6 py-3"
+                        >
+                          <ThumbsUp className="w-5 h-5" />
+                          <span className="font-semibold">{drinkRating?.likes || 0}</span>
+                        </Button>
+                        <Button
+                          variant={drinkRating?.userRating === -1 ? "destructive" : "outline"}
+                          size="lg"
+                          onClick={() => handleRating(recommendation.drink.id, -1, 'drink')}
+                          className="flex items-center space-x-2 px-6 py-3"
+                        >
+                          <ThumbsDown className="w-5 h-5" />
+                          <span className="font-semibold">{drinkRating?.dislikes || 0}</span>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 操作按钮 */}
+                  <div className="flex flex-col gap-4 justify-center mt-6">
                 {/* 主要操作按钮 */}
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button
@@ -758,29 +668,84 @@ export default function Home() {
                     <span>就这个！</span>
                   </Button>
 
-                  <Button
-                    onClick={(e) => {
-                      console.log('🔄 再来一次按钮被点击了！', e)
-                      handleRecommend()
-                    }}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="flex items-center space-x-2 border-gray-300 hover:bg-gray-50"
-                    size="lg"
-                    style={{ position: 'relative', zIndex: 10 }}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Dice6 className="animate-spin" />
-                        <span>正在选择...</span>
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw />
-                        <span>再来一次</span>
-                      </>
-                    )}
-                  </Button>
+                  {/* 根据是否有饮品显示不同的重新推荐按钮 */}
+                  {animationData?.drink ? (
+                    // 有饮品时显示独立的重新推荐按钮
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={(e) => {
+                          console.log('🍽️ 换个菜品按钮被点击了！', e)
+                          handleRecommendFood()
+                        }}
+                        disabled={isLoading}
+                        variant="outline"
+                        className="flex items-center space-x-2 border-orange-300 hover:bg-orange-50 text-orange-600"
+                        size="lg"
+                        style={{ position: 'relative', zIndex: 10 }}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Dice6 className="animate-spin w-4 h-4" />
+                            <span>换菜中...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Utensils className="w-4 h-4" />
+                            <span>换个菜</span>
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        onClick={(e) => {
+                          console.log('🥤 换个饮品按钮被点击了！', e)
+                          handleRecommendDrink()
+                        }}
+                        disabled={isLoading}
+                        variant="outline"
+                        className="flex items-center space-x-2 border-blue-300 hover:bg-blue-50 text-blue-600"
+                        size="lg"
+                        style={{ position: 'relative', zIndex: 10 }}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Dice6 className="animate-spin w-4 h-4" />
+                            <span>换饮中...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Coffee className="w-4 h-4" />
+                            <span>换个饮品</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    // 只有菜品时显示普通的重新推荐按钮
+                    <Button
+                      onClick={(e) => {
+                        console.log('🔄 再来一次按钮被点击了！', e)
+                        handleRecommend()
+                      }}
+                      disabled={isLoading}
+                      variant="outline"
+                      className="flex items-center space-x-2 border-gray-300 hover:bg-gray-50"
+                      size="lg"
+                      style={{ position: 'relative', zIndex: 10 }}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Dice6 className="animate-spin" />
+                          <span>正在选择...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw />
+                          <span>再来一次</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
 
                 {/* 拒绝按钮 */}
@@ -812,28 +777,236 @@ export default function Home() {
                     <span>永久不要</span>
                   </Button>
                 </div>
+                  </div>
+                </div>
+          ) : (
+            /* 推荐按钮区域 */
+            <div className="text-center space-y-12">
+              <div className="space-y-6">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-gray-600">
+                  <div className="flex items-center justify-center space-x-4">
+                    <Switch
+                      id="include-drink"
+                      checked={includeDrink}
+                      onCheckedChange={setIncludeDrink}
+                      className="data-[state=checked]:bg-orange-500"
+                    />
+                    <label
+                      htmlFor="include-drink"
+                      className="text-xl font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                    >
+                      同时推荐喝的
+                    </label>
+                  </div>
+                </div>
               </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-400 rounded-full blur-xl opacity-30 animate-pulse"></div>
+                <Button
+                  size="xl"
+                  onClick={(e) => {
+                    console.log('🎯 Button 被点击了！', e)
+                    handleRecommend()
+                  }}
+                  disabled={isLoading}
+                  className="relative w-80 h-24 text-3xl font-bold bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 shadow-2xl transform hover:scale-105 transition-all duration-200"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center space-x-3">
+                      <Dice6 className="animate-spin w-8 h-8" />
+                      <span>正在选择...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-3">
+                      <Utensils className="w-8 h-8" />
+                      <span>吃什么？</span>
+                    </div>
+                  )}
+                </Button>
+              </div>
+
+              <p className="text-xl text-gray-600 dark:text-gray-400 font-medium">
+                点击按钮，让我们为你决定今天吃什么！
+              </p>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl shadow-lg">
+                  {error}
+                </div>
+              )}
             </div>
           )}
+          </div>
         </div>
 
         {/* 底部信息 */}
-        <div className="text-center mt-16 space-y-2">
-          {stats && (
-            <p className="text-gray-500 dark:text-gray-400">
-              已收录 {stats.totalCount} 种美食 ({stats.dishCount} 个菜品 + {stats.drinkCount} 个饮品)
+        <div className="text-center mt-16 space-y-6">
+          {/* 统计信息 */}
+          <div className="space-y-2">
+            {stats && (
+              <p className="text-gray-500 dark:text-gray-400">
+                已收录 {stats.totalCount} 种美食
+              </p>
+            )}
+            {usageStats && (
+              <p className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                🎉 已帮助 {usageStats.totalHelped.toLocaleString()} 次选择
+              </p>
+            )}
+            {!stats && !usageStats && (
+              <p className="text-gray-500 dark:text-gray-400">正在加载数据...</p>
+            )}
+          </div>
+
+          {/* 贡献菜品区域 */}
+          <div className="pt-6 border-t border-gray-200 dark:border-gray-600">
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                  style={{ position: 'relative', zIndex: 10 }}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>贡献菜品</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center space-x-2">
+                    <ChefHat className="w-5 h-5 text-orange-500" />
+                    <span>贡献菜品</span>
+                  </DialogTitle>
+                  <DialogDescription>
+                    帮助我们丰富菜品库，让更多人受益！<br />
+                    <span className="text-orange-600 font-medium">提交后需要管理员审核通过才会显示</span>
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-3 block">
+                      类型选择
+                    </label>
+                    <div className="flex space-x-6">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="dish"
+                          name="uploadType"
+                          value="DISH"
+                          checked={uploadType === 'DISH'}
+                          onChange={(e) => setUploadType(e.target.value as 'DISH' | 'DRINK')}
+                          className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 focus:ring-orange-500 focus:ring-2"
+                        />
+                        <label
+                          htmlFor="dish"
+                          className="text-sm font-medium text-gray-700 cursor-pointer flex items-center space-x-2"
+                        >
+                          <span>🍽️</span>
+                          <span>菜品</span>
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="drink"
+                          name="uploadType"
+                          value="DRINK"
+                          checked={uploadType === 'DRINK'}
+                          onChange={(e) => setUploadType(e.target.value as 'DISH' | 'DRINK')}
+                          className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 focus:ring-orange-500 focus:ring-2"
+                        />
+                        <label
+                          htmlFor="drink"
+                          className="text-sm font-medium text-gray-700 cursor-pointer flex items-center space-x-2"
+                        >
+                          <span>🥤</span>
+                          <span>饮品</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 mb-2 block">
+                      {uploadType === 'DISH' ? '菜品' : '饮品'}名称（每行一个，或用逗号分隔）
+                    </label>
+                    <Textarea
+                      value={uploadText}
+                      onChange={(e) => setUploadText(e.target.value)}
+                      placeholder={uploadType === 'DISH'
+                        ? "例如：\n红烧肉\n宫保鸡丁\n麻婆豆腐\n\n或：红烧肉,宫保鸡丁,麻婆豆腐"
+                        : "例如：\n可乐\n雪碧\n橙汁\n\n或：可乐,雪碧,橙汁"
+                      }
+                      rows={6}
+                      className="resize-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleBatchUpload}
+                      disabled={isUploading || !uploadText.trim()}
+                      className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Upload className="w-4 h-4 mr-2 animate-pulse" />
+                          提交中...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          提交审核
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setUploadDialogOpen(false)
+                        setUploadText('')
+                        setUploadResult(null)
+                        setError(null)
+                      }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+
+                  {/* 上传结果 */}
+                  {uploadResult && (
+                    <div className="space-y-2">
+                      {uploadResult.success > 0 && (
+                        <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-sm">
+                          ✅ 成功提交 {uploadResult.success} 个{uploadType === 'DISH' ? '菜品' : '饮品'}，等待管理员审核
+                        </div>
+                      )}
+                      {uploadResult.duplicates.length > 0 && (
+                        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded text-sm">
+                          ⚠️ 重复的{uploadType === 'DISH' ? '菜品' : '饮品'}：{uploadResult.duplicates.join('、')}
+                        </div>
+                      )}
+                      {uploadResult.errors.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+                          ❌ 失败：{uploadResult.errors.join('、')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <p className="text-sm text-gray-500 mt-2">
+              帮助我们丰富菜品库，让更多人受益
             </p>
-          )}
-          {usageStats && (
-            <p className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              🎉 已帮助 {usageStats.totalHelped.toLocaleString()} 次选择
-            </p>
-          )}
-          {!stats && !usageStats && (
-            <p className="text-gray-500 dark:text-gray-400">正在加载数据...</p>
-          )}
+          </div>
         </div>
       </div>
+
+
     </div>
   )
 }
