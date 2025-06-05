@@ -16,12 +16,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeDrink = searchParams.get('includeDrink') === 'true'
     const onlyDrink = searchParams.get('onlyDrink') === 'true'
+    const type = searchParams.get('type') // 'food' 或 'drink'
 
     let randomDish = null
     let randomDrink = null
 
-    // 如果只推荐饮品
-    if (onlyDrink) {
+    // 如果指定了类型，只推荐该类型
+    if (type === 'drink' || onlyDrink) {
       const drinks = await prisma.food.findMany({
         where: { type: FoodType.DRINK, status: 'ACTIVE' },
         select: {
@@ -62,8 +63,8 @@ export async function GET(request: NextRequest) {
         }
       })
       randomDrink = drinksWithTags[Math.floor(Math.random() * drinksWithTags.length)]
-    } else {
-      // 获取菜品
+    } else if (type === 'food' || !type) {
+      // 获取菜品（默认行为或明确指定food类型）
       const dishes = await prisma.food.findMany({
         where: { type: FoodType.DISH, status: 'ACTIVE' },
         select: {
@@ -146,13 +147,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        food: randomDish,
-        drink: randomDrink
-      }
-    })
+    // 根据请求类型返回相应的数据结构
+    if (type === 'food') {
+      return NextResponse.json({
+        success: true,
+        data: {
+          food: randomDish,
+          drink: null
+        }
+      })
+    } else if (type === 'drink') {
+      return NextResponse.json({
+        success: true,
+        data: {
+          food: null,
+          drink: randomDrink
+        }
+      })
+    } else {
+      // 默认返回完整数据
+      return NextResponse.json({
+        success: true,
+        data: {
+          food: randomDish,
+          drink: randomDrink
+        }
+      })
+    }
 
   } catch (error) {
     console.error('推荐API错误:', error)
