@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Food } from '@/lib/types'
-import { Utensils, Coffee, ThumbsUp, ThumbsDown, RotateCcw, Check, X } from 'lucide-react'
+import { Utensils, Coffee, ThumbsUp, ThumbsDown, RotateCcw, Check, X, Sparkles } from 'lucide-react'
 
 interface FoodRouletteProps {
   foods: Food[]
@@ -30,25 +30,65 @@ export function FoodRoulette({
   const [showResult, setShowResult] = useState(false)
   const [rating, setRating] = useState<1 | -1 | null>(null)
   const [isRetrying, setIsRetrying] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(true)
+  const [currentDisplayFood, setCurrentDisplayFood] = useState<Food>(selectedFood)
+  const animationRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // 重置状态
     setShowResult(false)
     setRating(null)
     setIsRetrying(false)
+    setIsAnimating(true)
+    setCurrentDisplayFood(selectedFood)
 
-    // 简单的延迟显示结果，然后触发完成回调
-    const timer = setTimeout(() => {
-      setShowResult(true)
-      setTimeout(() => {
-        onAnimationComplete()
-        // 在显示结果后获取评分信息（如果需要的话）
-        // 这里可以调用获取评分的API，但要避免无限循环
-      }, 500)
-    }, 1000)
+    // 清除之前的动画
+    if (animationRef.current) {
+      clearInterval(animationRef.current)
+    }
 
-    return () => clearTimeout(timer)
-  }, [selectedFood.id]) // 只依赖selectedFood.id，避免函数引用导致的无限循环
+    // 老虎机动画效果
+    let animationCount = 0
+    const maxAnimations = 20 // 滚动次数
+    const animationSpeed = 100 // 初始速度（毫秒）
+
+    const startSlotAnimation = () => {
+      animationRef.current = setInterval(() => {
+        // 随机选择一个食物进行显示
+        if (foods.length > 1) {
+          const randomIndex = Math.floor(Math.random() * foods.length)
+          setCurrentDisplayFood(foods[randomIndex])
+        }
+
+        animationCount++
+
+        // 逐渐减慢速度
+        if (animationCount >= maxAnimations) {
+          // 动画结束，显示最终结果
+          clearInterval(animationRef.current!)
+          setCurrentDisplayFood(selectedFood)
+          setIsAnimating(false)
+
+          // 延迟一下显示结果
+          setTimeout(() => {
+            setShowResult(true)
+            setTimeout(() => {
+              onAnimationComplete()
+            }, 500)
+          }, 300)
+        }
+      }, animationSpeed + (animationCount * 20)) // 逐渐减慢
+    }
+
+    // 开始动画
+    startSlotAnimation()
+
+    return () => {
+      if (animationRef.current) {
+        clearInterval(animationRef.current)
+      }
+    }
+  }, [selectedFood.id, foods]) // 依赖selectedFood.id和foods数组
 
   const handleRate = (ratingValue: 1 | -1) => {
     setRating(ratingValue)
@@ -68,110 +108,130 @@ export function FoodRoulette({
 
   return (
     <div className="relative">
-      {/* 统一的卡片容器 - 只改变内部内容 */}
+      {/* 老虎机风格的卡片容器 */}
       <div className="flex flex-col items-center justify-center py-6 animate-fadeInUp">
-        <div className={`w-full max-w-sm bg-gradient-to-br ${
+        <div className={`w-full max-w-lg bg-gradient-to-br ${
           type === 'food'
-            ? 'from-orange-50 to-red-50 dark:from-gray-800 dark:to-gray-700'
-            : 'from-blue-50 to-cyan-50 dark:from-gray-800 dark:to-gray-700'
-        } rounded-3xl p-3 shadow-xl h-[400px] transition-all duration-300`}>
-          <div className="text-center h-full flex flex-col">
-            {!showResult || isRetrying ? (
-              /* 加载状态内容 - 固定布局 */
+            ? 'from-orange-100 via-red-50 to-pink-100'
+            : 'from-blue-100 via-cyan-50 to-purple-100'
+        } rounded-3xl p-6 shadow-2xl border-4 ${
+          type === 'food' ? 'border-orange-200' : 'border-blue-200'
+        } h-[500px] transition-all duration-500 relative overflow-hidden`}>
+
+          {/* 老虎机装饰边框 */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-red-400/20 animate-pulse"></div>
+
+          <div className="relative z-10 text-center h-full flex flex-col">
+            {isAnimating || (!showResult || isRetrying) ? (
+              /* 老虎机动画状态 */
               <>
-                {/* 顶部区域 */}
-                <div className="flex-1 flex flex-col justify-center items-center space-y-6">
-                  {/* 图标容器 - 加载状态 */}
-                  <div className={`inline-flex items-center justify-center w-20 h-20 ${
-                    type === 'food'
-                      ? 'bg-orange-100 dark:bg-orange-900'
-                      : 'bg-blue-100 dark:bg-blue-900'
-                  } rounded-full relative transition-all duration-300`}>
-                    {/* 旋转边框 */}
-                    <div className={`absolute inset-0 rounded-full border-4 ${
-                      type === 'food'
-                        ? 'border-orange-200 border-t-orange-500'
-                        : 'border-blue-200 border-t-blue-500'
-                    } animate-spin`}></div>
-
-                    {/* 中心图标 */}
-                    <div className="relative z-10">
-                      <div className="text-3xl animate-bounce" style={{animationDelay: '0.5s'}}>
-                        {type === 'food' ? '🍽️' : '🥤'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 加载文字 */}
-                  <div className="space-y-3">
-                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 transition-all duration-300">
-                      正在为你挑选{type === 'food' ? '美食' : '饮品'}...
+                {/* 老虎机标题 */}
+                <div className="flex-shrink-0 mb-6">
+                  <div className="flex items-center justify-center space-x-3 mb-4">
+                    <Sparkles className={`w-6 h-6 ${type === 'food' ? 'text-orange-500' : 'text-blue-500'} animate-spin`} />
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+                      {isAnimating ? '🎰 老虎机转动中...' : '正在为你挑选...'}
                     </h3>
-                    <p className="text-base text-gray-600 dark:text-gray-400 transition-all duration-300">
-                      请稍候片刻，好东西值得等待 ✨
-                    </p>
+                    <Sparkles className={`w-6 h-6 ${type === 'food' ? 'text-orange-500' : 'text-blue-500'} animate-spin`} style={{animationDirection: 'reverse'}} />
                   </div>
                 </div>
 
-                {/* 底部区域 */}
-                <div className="flex justify-center pb-4">
-                  <div className="flex space-x-2">
-                    <div className={`w-3 h-3 ${
+                {/* 老虎机显示区域 */}
+                <div className="flex-1 flex flex-col justify-center items-center space-y-6">
+                  {/* 菜品图片占位符 */}
+                  <div className={`w-32 h-32 rounded-2xl ${
+                    type === 'food'
+                      ? 'bg-gradient-to-br from-orange-200 to-red-200'
+                      : 'bg-gradient-to-br from-blue-200 to-purple-200'
+                  } flex items-center justify-center shadow-lg border-4 border-white ${
+                    isAnimating ? 'animate-pulse' : ''
+                  }`}>
+                    <div className="text-6xl">
+                      {type === 'food' ? '🍽️' : '🥤'}
+                    </div>
+                  </div>
+
+                  {/* 滚动的菜品名称 */}
+                  <div className="bg-white/80 backdrop-blur-sm rounded-xl px-6 py-4 shadow-lg border-2 border-gray-200 min-h-[80px] flex items-center justify-center">
+                    <h4 className={`text-xl font-bold text-gray-800 transition-all duration-300 ${
+                      isAnimating ? 'animate-bounce' : ''
+                    }`}>
+                      {currentDisplayFood.name}
+                    </h4>
+                  </div>
+
+                  {/* 滚动的标签 */}
+                  <div className="flex flex-wrap gap-2 justify-center min-h-[40px] items-center">
+                    <Badge variant="secondary" className={`px-3 py-1 ${isAnimating ? 'animate-pulse' : ''}`}>
+                      {currentDisplayFood.category}
+                    </Badge>
+                    {currentDisplayFood.tags && Array.isArray(currentDisplayFood.tags) && currentDisplayFood.tags.slice(0, 2).map((tag: string, index) => (
+                      <Badge key={`${tag}-${index}`} variant="outline" className={`px-3 py-1 ${isAnimating ? 'animate-pulse' : ''}`} style={{animationDelay: `${index * 0.1}s`}}>
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 底部装饰 */}
+                <div className="flex-shrink-0 flex justify-center pb-4">
+                  <div className="flex space-x-3">
+                    <div className={`w-4 h-4 ${
                       type === 'food' ? 'bg-orange-400' : 'bg-blue-400'
                     } rounded-full animate-bounce`}></div>
-                    <div className={`w-3 h-3 ${
-                      type === 'food' ? 'bg-orange-400' : 'bg-blue-400'
-                    } rounded-full animate-bounce`} style={{animationDelay: '0.1s'}}></div>
-                    <div className={`w-3 h-3 ${
+                    <div className={`w-4 h-4 ${
                       type === 'food' ? 'bg-orange-400' : 'bg-blue-400'
                     } rounded-full animate-bounce`} style={{animationDelay: '0.2s'}}></div>
+                    <div className={`w-4 h-4 ${
+                      type === 'food' ? 'bg-orange-400' : 'bg-blue-400'
+                    } rounded-full animate-bounce`} style={{animationDelay: '0.4s'}}></div>
                   </div>
                 </div>
               </>
             ) : (
-              /* 结果展示内容 - 固定布局 */
+              /* 🎉 推荐结果展示 - 新设计 */
               <>
-                {/* 顶部区域 */}
-                <div className="flex-shrink-0">
-                  {/* 图标容器 - 结果状态 */}
-                  <div className={`inline-flex items-center justify-center w-20 h-20 ${
-                    type === 'food'
-                      ? 'bg-orange-100 dark:bg-orange-900'
-                      : 'bg-blue-100 dark:bg-blue-900'
-                  } rounded-full mb-4 transition-all duration-300`}>
-                    {type === 'food' ? (
-                      <Utensils className={`w-10 h-10 ${
-                        type === 'food'
-                          ? 'text-orange-600 dark:text-orange-400'
-                          : 'text-blue-600 dark:text-blue-400'
-                      } transition-all duration-300`} />
-                    ) : (
-                      <Coffee className={`w-10 h-10 ${
-                        type === 'food'
-                          ? 'text-orange-600 dark:text-orange-400'
-                          : 'text-blue-600 dark:text-blue-400'
-                      } transition-all duration-300`} />
-                    )}
+                {/* 成功标题 */}
+                <div className="flex-shrink-0 mb-6">
+                  <div className="flex items-center justify-center space-x-2 mb-4">
+                    <span className="text-3xl">🎉</span>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                      推荐结果
+                    </h3>
+                    <span className="text-3xl">✨</span>
                   </div>
                 </div>
 
-                {/* 中间内容区域 - 优化间距 */}
-                <div className="flex-1 flex flex-col justify-center space-y-2 overflow-hidden">
-                  {/* 标题和描述 */}
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 truncate">
-                    {selectedFood.name}
-                  </h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                    {selectedFood.description}
-                  </p>
+                {/* 菜品展示区域 */}
+                <div className="flex-1 flex flex-col justify-center space-y-6">
+                  {/* 高清菜品图片占位符 */}
+                  <div className={`w-40 h-40 mx-auto rounded-3xl ${
+                    type === 'food'
+                      ? 'bg-gradient-to-br from-orange-300 to-red-300'
+                      : 'bg-gradient-to-br from-blue-300 to-purple-300'
+                  } flex items-center justify-center shadow-2xl border-4 border-white transform hover:scale-105 transition-transform duration-300`}>
+                    <div className="text-8xl">
+                      {type === 'food' ? '🍽️' : '🥤'}
+                    </div>
+                  </div>
 
-                  {/* 标签区域 */}
-                  <div className="flex flex-wrap gap-1 justify-center max-h-12 overflow-hidden">
-                    <Badge variant="secondary" className="text-xs px-2 py-1">
+                  {/* 菜品名称和描述 */}
+                  <div className="space-y-3">
+                    <h4 className="text-2xl font-black text-gray-800">
+                      {selectedFood.name}
+                    </h4>
+                    <p className="text-lg text-gray-600 leading-relaxed">
+                      {selectedFood.description || `美味的${type === 'food' ? '菜品' : '饮品'}，值得一试！`}
+                    </p>
+                  </div>
+
+                  {/* 3个关键词标签 */}
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    <Badge variant="secondary" className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-orange-100 to-red-100 text-orange-800 border-orange-200">
                       {selectedFood.category}
                     </Badge>
-                    {selectedFood.tags && Array.isArray(selectedFood.tags) && selectedFood.tags.slice(0, 2).map((tag: string) => (
-                      <Badge key={tag} variant="outline" className="text-xs px-2 py-1">
+                    {selectedFood.tags && Array.isArray(selectedFood.tags) && selectedFood.tags.slice(0, 3).map((tag: string, index) => (
+                      <Badge key={tag} variant="outline" className="px-4 py-2 text-sm font-semibold border-2 hover:bg-gray-50 transition-colors">
                         {tag}
                       </Badge>
                     ))}
@@ -181,7 +241,7 @@ export function FoodRoulette({
                   <div className="text-center">
                     <Badge
                       variant={selectedFood.isUserUploaded ? "default" : "outline"}
-                      className={`text-xs px-2 py-1 ${
+                      className={`px-4 py-2 text-sm font-medium ${
                         selectedFood.isUserUploaded
                           ? type === 'food'
                             ? "bg-orange-100 text-orange-800 border-orange-200"
@@ -192,72 +252,72 @@ export function FoodRoulette({
                       {selectedFood.isUserUploaded ? "👥 用户贡献" : "🏠 系统推荐"}
                     </Badge>
                   </div>
-
-                  {/* 评分按钮 - 优化布局 */}
-                  <div className="flex justify-center space-x-2">
-                    <Button
-                      variant={rating === 1 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => handleRate(1)}
-                      className="flex items-center space-x-1 px-3 py-1 text-xs"
-                    >
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>{type === 'food' ? '好吃' : '好喝'}</span>
-                    </Button>
-                    <Button
-                      variant={rating === -1 ? "destructive" : "outline"}
-                      size="sm"
-                      onClick={() => handleRate(-1)}
-                      className="flex items-center space-x-1 px-3 py-1 text-xs"
-                    >
-                      <ThumbsDown className="w-3 h-3" />
-                      <span>不喜欢</span>
-                    </Button>
-                  </div>
                 </div>
 
-                {/* 底部操作区域 - 优化布局 */}
-                <div className="flex-shrink-0 space-y-2">
-                  {/* 主要操作按钮 - 并排显示 */}
-                  <div className="flex justify-center gap-2">
+                {/* 底部操作区域 - 新设计 */}
+                <div className="flex-shrink-0 space-y-4">
+                  {/* 主要操作按钮 - "就吃这个！"和"换一个" */}
+                  <div className="flex justify-center gap-4">
                     <Button
                       onClick={onAccept}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-1 text-xs font-semibold flex-1 max-w-[100px]"
-                      size="sm"
+                      className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8 py-3 text-lg font-bold rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
+                      size="lg"
                     >
-                      <Check className="w-3 h-3 mr-1" />
-                      就这个了！
+                      <Check className="w-5 h-5 mr-2" />
+                      就吃这个！
                     </Button>
                     <Button
                       onClick={handleTryAgain}
                       variant="outline"
-                      className="px-4 py-1 text-xs font-semibold border-gray-300 hover:bg-gray-50 flex-1 max-w-[100px]"
-                      size="sm"
+                      className="px-8 py-3 text-lg font-bold border-2 border-gray-300 hover:border-orange-300 hover:bg-orange-50 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
+                      size="lg"
                       disabled={isRetrying}
                     >
-                      <RotateCcw className={`w-3 h-3 mr-1 ${isRetrying ? 'animate-spin' : ''}`} />
-                      {isRetrying ? '推荐中...' : '再来一次'}
+                      <RotateCcw className={`w-5 h-5 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+                      {isRetrying ? '推荐中...' : '换一个'}
                     </Button>
                   </div>
 
-                  {/* 拒绝选项 - 更紧凑 */}
-                  <div className="flex justify-center gap-1">
+                  {/* 评分按钮 */}
+                  <div className="flex justify-center space-x-4">
+                    <Button
+                      variant={rating === 1 ? "default" : "outline"}
+                      size="default"
+                      onClick={() => handleRate(1)}
+                      className="flex items-center space-x-2 px-6 py-2"
+                    >
+                      <ThumbsUp className="w-4 h-4" />
+                      <span>{type === 'food' ? '好吃' : '好喝'}</span>
+                    </Button>
+                    <Button
+                      variant={rating === -1 ? "destructive" : "outline"}
+                      size="default"
+                      onClick={() => handleRate(-1)}
+                      className="flex items-center space-x-2 px-6 py-2"
+                    >
+                      <ThumbsDown className="w-4 h-4" />
+                      <span>不喜欢</span>
+                    </Button>
+                  </div>
+
+                  {/* 拒绝选项 - 更小更低调 */}
+                  <div className="flex justify-center gap-3">
                     <Button
                       onClick={() => onReject?.('today')}
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="text-gray-500 hover:text-gray-700 border-gray-300 text-xs px-2 py-1 h-6"
+                      className="text-gray-400 hover:text-gray-600 text-sm px-4 py-1"
                     >
-                      <X className="w-2 h-2 mr-1" />
+                      <X className="w-3 h-3 mr-1" />
                       今天不要
                     </Button>
                     <Button
                       onClick={() => onReject?.('forever')}
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      className="text-red-500 hover:text-red-700 border-red-300 hover:bg-red-50 text-xs px-2 py-1 h-6"
+                      className="text-red-400 hover:text-red-600 text-sm px-4 py-1"
                     >
-                      <X className="w-2 h-2 mr-1" />
+                      <X className="w-3 h-3 mr-1" />
                       永远不要
                     </Button>
                   </div>

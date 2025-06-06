@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Dice6, Utensils, Coffee, RotateCcw, X, Settings, Heart, TrendingUp, Plus, Upload, ChefHat, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Dice6, Utensils, Coffee, RotateCcw, X, Settings, Heart, TrendingUp, Plus, Upload, ChefHat, ThumbsUp, ThumbsDown, Filter, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Food } from '@/lib/types'
 import { FoodRoulette } from '@/components/food-roulette'
@@ -83,6 +83,14 @@ export default function Home() {
 
   // 管理员权限状态
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // 筛选功能状态
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({
+    taste: [] as string[], // 口味偏好：不吃辣、清淡等
+    cuisine: [] as string[], // 菜系选择：粤菜、日料等
+    dietary: [] as string[] // 饮食忌口：不吃海鲜、不吃香菜等
+  })
 
   // 数字动画函数
   const animateCount = useCallback((targetCount: number) => {
@@ -568,9 +576,21 @@ export default function Home() {
 
 
   return (
-    <div className="h-screen bg-orange-50 relative flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 relative overflow-x-hidden">
+      {/* 背景装饰 - 浮动美食emoji */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-10 left-10 text-4xl opacity-20 animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🍕</div>
+        <div className="absolute top-20 right-20 text-3xl opacity-15 animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🍔</div>
+        <div className="absolute top-40 left-1/4 text-5xl opacity-10 animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🍜</div>
+        <div className="absolute top-60 right-1/3 text-3xl opacity-20 animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🥤</div>
+        <div className="absolute bottom-40 left-20 text-4xl opacity-15 animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🍰</div>
+        <div className="absolute bottom-60 right-10 text-3xl opacity-10 animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3s'}}>🍣</div>
+        <div className="absolute top-1/3 left-1/2 text-6xl opacity-5 animate-bounce" style={{animationDelay: '3s', animationDuration: '6s'}}>🍲</div>
+        <div className="absolute bottom-1/3 right-1/4 text-4xl opacity-15 animate-bounce" style={{animationDelay: '0.8s', animationDuration: '4s'}}>🥗</div>
+      </div>
+
       {/* 右上角功能区 */}
-      <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
+      <div className="absolute top-4 right-4 z-50 flex items-center space-x-2">
         {/* 贡献菜品按钮 - 放在最左边，所有用户都能看到 */}
         <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
           <DialogTrigger asChild>
@@ -748,20 +768,24 @@ export default function Home() {
         )}
       </div>
 
-      {/* 简化：直接使用主要内容区域，移除多余的层级 */}
-      <div className="relative z-10 flex flex-col h-full w-full">
-        <div className="flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4 lg:px-8">
+      {/* 主要内容区域 - 沉浸式单屏设计 */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        {/* 第一屏：主要推荐功能 */}
+        <div className="min-h-screen flex flex-col justify-center items-center px-4 py-8">
           {animationData ? (
-              /* 推荐过程和结果区域 - 简化 */
-              <div className="space-y-4">
+              /* 推荐过程和结果区域 - 老虎机动画 */
+              <div className="w-full max-w-4xl mx-auto space-y-8">
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-3">
-                    {showAnimation ? '🎲 正在推荐...' : '🎉 推荐结果'}
+                  <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
+                    {showAnimation ? '🎰 正在为你挑选...' : '🎉 推荐结果'}
                   </h2>
+                  <p className="text-gray-600 text-lg">
+                    {showAnimation ? '请稍候，好东西值得等待' : '为你精心挑选的美食'}
+                  </p>
                 </div>
 
-                {/* 动画展示区域 - 根据是否有饮品决定布局 */}
-                <div className={`grid gap-4 ${animationData.drink ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-md mx-auto'}`}>
+                {/* 老虎机动画展示区域 */}
+                <div className={`grid gap-8 ${animationData.drink ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-lg mx-auto'}`}>
                   {/* 菜品展示区域 */}
                   <div>
                     <FoodRoulette
@@ -1037,191 +1061,147 @@ export default function Home() {
                   </div>
                 </div>
           ) : (
-            /* 🏠 PC端全屏优化设计 */
-            <div className="h-screen relative overflow-hidden">
-
-              {/* 装饰层已全部移除 */}
-
-              {/* 🎯 PC端主要内容区域 - 左右两段式布局，合理的卡片大小 */}
-              <div className="relative z-10 h-screen flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 lg:px-16 lg:py-12 w-full max-w-7xl mx-auto">
-
-                {/* 📱 移动端标题区域 - 充分利用空间 */}
-                <div className="flex-shrink-0 pt-6 pb-4 px-4 lg:hidden">
-                  <div className="text-center space-y-4">
-                    {/* 主标题 - 移动端 */}
-                    <div className="relative">
-                      <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
-                        吃啥？
-                      </h1>
-                      {/* 标题装饰 */}
-                      <div className="absolute -top-2 -right-2 text-xl animate-spin-slow">✨</div>
-                    </div>
-
-                    {/* 副标题 - 移动端 */}
-                    <p className="text-base text-gray-600 dark:text-gray-300 font-medium max-w-md mx-auto">
-                      让AI为你做决定，告别选择困难症
-                    </p>
-                  </div>
+            /* 🎯 新版沉浸式单屏设计 */
+            <div className="w-full max-w-4xl mx-auto space-y-12">
+              {/* 主标题区域 */}
+              <div className="text-center space-y-6">
+                <div className="relative">
+                  <h1 className="text-5xl md:text-7xl lg:text-8xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg leading-none">
+                    吃啥？
+                  </h1>
+                  {/* 标题装饰 */}
+                  <div className="absolute -top-4 -right-4 text-3xl animate-spin-slow">✨</div>
+                  <div className="absolute -bottom-2 -left-2 text-2xl animate-bounce" style={{animationDelay: '1s'}}>🎲</div>
                 </div>
 
-                {/* 🏆 左半边：美食排行榜 - 合理的卡片高度 */}
-                <div className="hidden lg:flex lg:flex-col lg:h-[calc(100vh-6rem)] lg:p-6 lg:bg-orange-100 lg:rounded-2xl lg:shadow-lg lg:border lg:border-orange-200 lg:overflow-hidden">
-                  <FoodRankingPanel />
+                {/* 统计信息 */}
+                <div className="flex items-center justify-center space-x-6 text-lg text-gray-600">
+                  <div className="flex items-center space-x-3">
+                    <span>已帮助</span>
+                    <FlipCounter
+                      value={displayedCount}
+                      isAnimating={isCountAnimating}
+                      className="text-2xl font-bold text-orange-500"
+                    />
+                    <span>次选择</span>
+                  </div>
+                  {pollingInterval && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm">实时更新</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 主要交互区域 */}
+              <div className="space-y-8 relative z-20">
+                {/* 测试按钮 */}
+                <div className="flex justify-center mb-4">
+                  <button
+                    onClick={() => alert('测试按钮工作正常！')}
+                    className="bg-blue-500 text-white px-4 py-2 rounded"
+                  >
+                    测试按钮
+                  </button>
                 </div>
 
-                {/* 🎯 右半边：主要功能区 - 合理的卡片高度 */}
-                <div className="flex-1 flex flex-col lg:h-[calc(100vh-6rem)] lg:p-6 lg:bg-red-100 lg:rounded-2xl lg:shadow-lg lg:border lg:border-red-200 lg:overflow-hidden">
-
-                  {/* PC端标题区域 */}
-                  <div className="hidden lg:block lg:flex-shrink-0 lg:mb-6">
-                    <div className="text-center space-y-4">
-                      {/* 主标题 - PC端，更紧凑的尺寸 */}
-                      <div className="relative">
-                        <h1 className="text-3xl xl:text-4xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
-                          吃啥？
-                        </h1>
-                        {/* 标题装饰 */}
-                        <div className="absolute -top-2 -right-2 text-xl animate-spin-slow">✨</div>
+                {/* 主推荐按钮 - 绝对视觉中心 */}
+                <div className="relative flex justify-center">
+                  <Button
+                    onClick={() => {
+                      console.log('主推荐按钮被点击了！')
+                      handleRecommend()
+                    }}
+                    disabled={isLoading}
+                    className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-2xl md:text-3xl font-black py-8 px-16 rounded-full shadow-2xl hover:scale-105 transition-all duration-300 disabled:opacity-50 relative z-30"
+                    size="xl"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center justify-center space-x-3">
+                        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>正在推荐...</span>
                       </div>
-
-                      {/* 统计信息 - 简化版 */}
-                      <div className="flex items-center justify-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center space-x-2">
-                          <span>已帮助</span>
-                          <FlipCounter
-                            value={displayedCount}
-                            isAnimating={isCountAnimating}
-                            className="text-base font-bold text-orange-500"
-                          />
-                          <span>次选择</span>
-                        </div>
-                        {pollingInterval && (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs">实时更新</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 主要功能区域 - 上面2/3 */}
-                  <div className="flex-1 flex flex-col justify-center space-y-6 lg:space-y-8 px-4 lg:px-0 max-w-lg mx-auto w-full">
-
-                    {/* 主推荐按钮 */}
-                    <div className="relative">
-                      <Button
-                        onClick={handleRecommend}
-                        disabled={isLoading}
-                        className="relative bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-lg font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 group w-full"
-                        size="lg"
-                      >
-                        {isLoading ? (
-                          <div className="flex items-center justify-center space-x-2">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            <span>正在推荐...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center space-x-2">
-                            <span className="text-xl group-hover:animate-bounce">🎲</span>
-                            <span>开始推荐！</span>
-                          </div>
-                        )}
-
-                        {/* 按钮光效 */}
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 opacity-0 group-hover:opacity-30 transition-opacity duration-300 blur-xl"></div>
-                      </Button>
-
-                      {/* 按钮装饰 */}
-                      <div className="absolute -inset-4 lg:-inset-8 bg-gradient-to-r from-orange-500/20 via-red-500/20 to-pink-500/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    </div>
-
-                    {/* 饮品开关 */}
-                    <div className="flex items-center justify-center space-x-3">
-                      <span className="text-lg">🥤</span>
-                      <div className="text-center">
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">同时推荐饮品</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">让搭配更完美</div>
-                      </div>
-                      <button
-                        onClick={() => setIncludeDrink(!includeDrink)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          includeDrink
-                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg'
-                            : 'bg-gray-300 dark:bg-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${
-                            includeDrink ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* ⚠️ 错误提示 */}
-                    {error && (
-                      <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl text-sm backdrop-blur-sm">
-                        <div className="flex items-center justify-center space-x-2">
-                          <span>⚠️</span>
-                          <span>{error}</span>
-                        </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-3">
+                        <span className="text-3xl">🎰</span>
+                        <span>帮我决定！</span>
                       </div>
                     )}
-                  </div>
-
-                  {/* Slogan区域 - 下面1/3 */}
-                  <div className="flex-shrink-0 lg:mt-8">
-                    <div className="text-center space-y-4">
-                      {/* 移动端统计信息 */}
-                      <div className="lg:hidden">
-                        <div className="flex items-center justify-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center space-x-2">
-                            <span>已帮助</span>
-                            <FlipCounter
-                              value={displayedCount}
-                              isAnimating={isCountAnimating}
-                              className="text-lg font-bold text-orange-500"
-                            />
-                            <span>次选择</span>
-                          </div>
-                          {pollingInterval && (
-                            <div className="flex items-center space-x-1">
-                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs">实时更新</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Slogan */}
-                      <p className="text-base text-gray-600 dark:text-gray-300 font-medium">
-                        让AI为你做决定，告别选择困难症
-                      </p>
-
-                      {/* 功能特色 */}
-                      <div className="flex items-center justify-center space-x-4 text-xs text-gray-400">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-sm">🎲</span>
-                          <span>随机推荐</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-sm">🍽️</span>
-                          <span>丰富菜品</span>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-sm">💫</span>
-                          <span>告别纠结</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  </Button>
                 </div>
 
+                {/* 饮品开关和筛选功能 */}
+                <div className="flex flex-col items-center space-y-6">
+                  {/* 饮品开关 */}
+                  <div className="flex items-center justify-center space-x-4 bg-white/60 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg border border-white/20">
+                    <span className="text-2xl">🥤</span>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-gray-800">同时推荐饮品</div>
+                      <div className="text-sm text-gray-600">让搭配更完美</div>
+                    </div>
+                    <button
+                      onClick={() => setIncludeDrink(!includeDrink)}
+                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-blue-500/30 ${
+                        includeDrink
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg'
+                          : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
+                          includeDrink ? 'translate-x-8' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
 
+                  {/* 筛选按钮 */}
+                  <Button
+                    onClick={() => {
+                      console.log('筛选按钮被点击了！')
+                      setShowFilters(!showFilters)
+                    }}
+                    variant="outline"
+                    className="bg-white border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 px-6 py-3 rounded-xl"
+                  >
+                    <Filter className="w-5 h-5 mr-2" />
+                    <span className="font-medium">个性化筛选</span>
+                    <Sparkles className="w-4 h-4 ml-2 text-orange-500" />
+                  </Button>
+                </div>
+
+                {/* ⚠️ 错误提示 */}
+                {error && (
+                  <div className="bg-red-50/90 backdrop-blur-sm border-2 border-red-200 text-red-700 px-6 py-4 rounded-2xl text-lg font-medium shadow-lg">
+                    <div className="flex items-center justify-center space-x-3">
+                      <span className="text-2xl">⚠️</span>
+                      <span>{error}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
+        </div>
+
+        {/* 第二屏：本周热门（美食排行榜） */}
+        <div className="min-h-screen flex flex-col justify-center items-center px-4 py-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+          <div className="w-full max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+                🏆 本周热门
+              </h2>
+              <p className="text-xl text-gray-600">
+                看看大家都在选什么
+              </p>
+            </div>
+
+            {/* 图文并茂的卡片流样式 */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/20">
+              <FoodRankingPanel />
+            </div>
+          </div>
         </div>
       </div>
     </div>
