@@ -33,7 +33,7 @@ interface RankingData {
 
 export default function FoodRankingPanel() {
   const [rankingData, setRankingData] = useState<RankingData | null>(null)
-  const [loading, setLoading] = useState(false) // 先设为false，避免无限加载
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'dish' | 'drink'>('all')
 
   // 获取排行榜数据
@@ -83,7 +83,7 @@ export default function FoodRankingPanel() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col min-h-0">
       {/* 标题 */}
       <div className="flex-shrink-0 mb-6">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 text-center">
@@ -142,8 +142,8 @@ export default function FoodRankingPanel() {
         </div>
       </div>
 
-      {/* 排行榜内容 */}
-      <div className="flex-1 overflow-hidden">
+      {/* 排行榜内容 - 修复滚动问题 */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-3">
@@ -152,7 +152,7 @@ export default function FoodRankingPanel() {
             </div>
           </div>
         ) : rankingData && rankingData.ranking.length > 0 ? (
-          <div className="h-full overflow-y-auto space-y-3 pr-2">
+          <div className="h-full overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
             {rankingData.ranking.map((item) => (
               <div
                 key={item.id}

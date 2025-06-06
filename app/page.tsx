@@ -568,7 +568,7 @@ export default function Home() {
 
 
   return (
-    <div className="h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 relative flex flex-col overflow-hidden">
+    <div className="h-screen bg-orange-50 relative flex flex-col overflow-hidden">
       {/* 右上角功能区 */}
       <div className="absolute top-4 right-4 z-20 flex items-center space-x-2">
         {/* 贡献菜品按钮 - 放在最左边，所有用户都能看到 */}
@@ -748,12 +748,10 @@ export default function Home() {
         )}
       </div>
 
-      <div className="relative z-10 flex flex-col h-full w-full px-4 lg:px-8">
-
-        {/* 主要内容区域 - 有合理边距的设计 */}
-        <div className="flex-1 flex flex-col w-full max-w-7xl mx-auto">
-          <div className="flex-1 flex flex-col justify-center w-full">
-            {animationData ? (
+      {/* 简化：直接使用主要内容区域，移除多余的层级 */}
+      <div className="relative z-10 flex flex-col h-full w-full">
+        <div className="flex-1 flex flex-col justify-center w-full max-w-7xl mx-auto px-4 lg:px-8">
+          {animationData ? (
               /* 推荐过程和结果区域 - 简化 */
               <div className="space-y-4">
                 <div className="text-center">
@@ -765,7 +763,7 @@ export default function Home() {
                 {/* 动画展示区域 - 根据是否有饮品决定布局 */}
                 <div className={`grid gap-4 ${animationData.drink ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-md mx-auto'}`}>
                   {/* 菜品展示区域 */}
-                  <div>yi
+                  <div>
                     <FoodRoulette
                       foods={allFoods.length > 0 ? allFoods : [animationData.food]}
                       selectedFood={animationData.food}
@@ -1042,83 +1040,48 @@ export default function Home() {
             /* 🏠 PC端全屏优化设计 */
             <div className="h-screen relative overflow-hidden">
 
-              {/* 🎨 PC端增强背景装饰 - 优化空白区域融合 */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* 主背景渐变 - 更柔和的过渡 */}
-                <div className="absolute -top-60 -right-60 w-96 h-96 lg:w-[800px] lg:h-[800px] bg-gradient-to-br from-orange-200/15 to-red-200/15 rounded-full blur-3xl"></div>
-                <div className="absolute -bottom-60 -left-60 w-96 h-96 lg:w-[800px] lg:h-[800px] bg-gradient-to-tr from-pink-200/15 to-orange-200/15 rounded-full blur-3xl"></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 lg:w-[1000px] lg:h-[1000px] bg-gradient-to-r from-red-100/8 to-pink-100/8 rounded-full blur-3xl"></div>
+              {/* 装饰层已全部移除 */}
 
-                {/* 左右边缘柔化渐变 - 减少割裂感 */}
-                <div className="hidden lg:block absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-orange-50/20 via-orange-50/10 to-transparent dark:from-orange-900/10 dark:via-orange-900/5 dark:to-transparent"></div>
-                <div className="hidden lg:block absolute inset-y-0 right-0 w-40 bg-gradient-to-l from-pink-50/20 via-pink-50/10 to-transparent dark:from-pink-900/10 dark:via-pink-900/5 dark:to-transparent"></div>
-
-                {/* 水平连接线 - 微妙的视觉连接 */}
-                <div className="hidden lg:block absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-orange-200/10 to-transparent dark:via-orange-700/10"></div>
-                <div className="hidden lg:block absolute top-1/3 left-0 w-full h-px bg-gradient-to-r from-transparent via-pink-200/8 to-transparent dark:via-pink-700/8"></div>
-                <div className="hidden lg:block absolute top-2/3 left-0 w-full h-px bg-gradient-to-r from-transparent via-red-200/8 to-transparent dark:via-red-700/8"></div>
-
-                {/* PC端专用装饰网格 - 分布在空白区域 */}
-                <div className="hidden lg:block absolute inset-0">
-                  <div className="absolute top-20 left-16 w-2 h-2 bg-orange-300/30 rounded-full animate-pulse"></div>
-                  <div className="absolute top-40 right-16 w-1.5 h-1.5 bg-red-300/30 rounded-full animate-pulse delay-1000"></div>
-                  <div className="absolute bottom-32 left-20 w-2 h-2 bg-pink-300/30 rounded-full animate-pulse delay-2000"></div>
-                  <div className="absolute bottom-40 right-20 w-1.5 h-1.5 bg-orange-400/30 rounded-full animate-pulse delay-3000"></div>
-                  <div className="absolute top-1/3 left-12 w-1 h-1 bg-red-400/30 rounded-full animate-pulse delay-4000"></div>
-                  <div className="absolute top-2/3 right-12 w-1.5 h-1.5 bg-pink-400/30 rounded-full animate-pulse delay-5000"></div>
-                </div>
-
-                {/* PC端食物图标装饰 - 主要在空白区域 */}
-                <div className="absolute top-16 right-16 text-2xl lg:text-3xl opacity-12 animate-bounce delay-500">🍜</div>
-                <div className="absolute bottom-20 right-20 text-2xl lg:text-3xl opacity-12 animate-bounce delay-1500">🥗</div>
-                <div className="absolute top-32 left-16 text-2xl lg:text-3xl opacity-12 animate-bounce delay-2500">🍕</div>
-                <div className="hidden lg:block absolute top-1/4 right-24 text-2xl opacity-8 animate-bounce delay-3500">🍰</div>
-                <div className="hidden lg:block absolute bottom-1/4 left-24 text-2xl opacity-8 animate-bounce delay-4500">🍱</div>
-                <div className="hidden lg:block absolute top-3/4 right-28 text-xl opacity-8 animate-bounce delay-5500">🥤</div>
-                <div className="hidden lg:block absolute top-1/2 left-8 text-xl opacity-10 animate-bounce delay-6500">🍲</div>
-                <div className="hidden lg:block absolute top-1/2 right-8 text-xl opacity-10 animate-bounce delay-7500">🥘</div>
-              </div>
-
-              {/* 🎯 PC端主要内容区域 - 左右两段式布局，有合理边距 */}
-              <div className="relative z-10 h-screen flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 lg:px-8 lg:py-6 w-full max-w-7xl mx-auto">
+              {/* 🎯 PC端主要内容区域 - 左右两段式布局，合理的卡片大小 */}
+              <div className="relative z-10 h-screen flex flex-col lg:grid lg:grid-cols-2 lg:gap-8 lg:px-16 lg:py-12 w-full max-w-7xl mx-auto">
 
                 {/* 📱 移动端标题区域 - 充分利用空间 */}
                 <div className="flex-shrink-0 pt-6 pb-4 px-4 lg:hidden">
                   <div className="text-center space-y-4">
                     {/* 主标题 - 移动端 */}
                     <div className="relative">
-                      <h1 className="text-6xl md:text-7xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
+                      <h1 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
                         吃啥？
                       </h1>
                       {/* 标题装饰 */}
-                      <div className="absolute -top-4 -right-4 text-3xl animate-spin-slow">✨</div>
+                      <div className="absolute -top-2 -right-2 text-xl animate-spin-slow">✨</div>
                     </div>
 
                     {/* 副标题 - 移动端 */}
-                    <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 font-medium max-w-md mx-auto">
+                    <p className="text-base text-gray-600 dark:text-gray-300 font-medium max-w-md mx-auto">
                       让AI为你做决定，告别选择困难症
                     </p>
                   </div>
                 </div>
 
-                {/* 🏆 左半边：美食排行榜 - 有明显的背景区分 */}
-                <div className="hidden lg:flex lg:flex-col lg:h-full lg:p-6 lg:bg-white/80 lg:dark:bg-gray-800/80 lg:rounded-2xl lg:backdrop-blur-sm lg:shadow-lg lg:border lg:border-orange-100/50 lg:dark:border-gray-700/50">
+                {/* 🏆 左半边：美食排行榜 - 合理的卡片高度 */}
+                <div className="hidden lg:flex lg:flex-col lg:h-[calc(100vh-6rem)] lg:p-6 lg:bg-orange-100 lg:rounded-2xl lg:shadow-lg lg:border lg:border-orange-200 lg:overflow-hidden">
                   <FoodRankingPanel />
                 </div>
 
-                {/* 🎯 右半边：主要功能区 - 有不同的背景区分 */}
-                <div className="flex-1 flex flex-col lg:h-full lg:p-6 lg:bg-gradient-to-br lg:from-orange-50/60 lg:via-red-50/40 lg:to-pink-50/60 lg:dark:from-gray-900/60 lg:dark:via-gray-800/40 lg:dark:to-gray-900/60 lg:rounded-2xl lg:backdrop-blur-sm lg:shadow-lg lg:border lg:border-orange-200/30 lg:dark:border-gray-600/30">
+                {/* 🎯 右半边：主要功能区 - 合理的卡片高度 */}
+                <div className="flex-1 flex flex-col lg:h-[calc(100vh-6rem)] lg:p-6 lg:bg-red-100 lg:rounded-2xl lg:shadow-lg lg:border lg:border-red-200 lg:overflow-hidden">
 
                   {/* PC端标题区域 */}
                   <div className="hidden lg:block lg:flex-shrink-0 lg:mb-6">
                     <div className="text-center space-y-4">
-                      {/* 主标题 - PC端，适应更大屏幕 */}
+                      {/* 主标题 - PC端，更紧凑的尺寸 */}
                       <div className="relative">
-                        <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
+                        <h1 className="text-3xl xl:text-4xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm leading-none">
                           吃啥？
                         </h1>
                         {/* 标题装饰 */}
-                        <div className="absolute -top-4 -right-4 xl:-top-6 xl:-right-6 text-3xl xl:text-4xl animate-spin-slow">✨</div>
+                        <div className="absolute -top-2 -right-2 text-xl animate-spin-slow">✨</div>
                       </div>
 
                       {/* 统计信息 - 简化版 */}
@@ -1128,7 +1091,7 @@ export default function Home() {
                           <FlipCounter
                             value={displayedCount}
                             isAnimating={isCountAnimating}
-                            className="text-lg font-bold text-orange-500"
+                            className="text-base font-bold text-orange-500"
                           />
                           <span>次选择</span>
                         </div>
@@ -1150,17 +1113,17 @@ export default function Home() {
                       <Button
                         onClick={handleRecommend}
                         disabled={isLoading}
-                        className="relative bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-xl md:text-2xl lg:text-2xl font-black py-6 md:py-8 lg:py-10 px-10 md:px-14 lg:px-16 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300 disabled:opacity-50 group w-full"
+                        className="relative bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-lg font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 group w-full"
                         size="lg"
                       >
                         {isLoading ? (
-                          <div className="flex items-center justify-center space-x-3">
-                            <div className="w-6 h-6 lg:w-8 lg:h-8 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <div className="flex items-center justify-center space-x-2">
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             <span>正在推荐...</span>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center space-x-3">
-                            <span className="text-2xl lg:text-4xl group-hover:animate-bounce">🎲</span>
+                          <div className="flex items-center justify-center space-x-2">
+                            <span className="text-xl group-hover:animate-bounce">🎲</span>
                             <span>开始推荐！</span>
                           </div>
                         )}
@@ -1174,23 +1137,23 @@ export default function Home() {
                     </div>
 
                     {/* 饮品开关 */}
-                    <div className="flex items-center justify-center space-x-4">
-                      <span className="text-2xl">🥤</span>
+                    <div className="flex items-center justify-center space-x-3">
+                      <span className="text-lg">🥤</span>
                       <div className="text-center">
-                        <div className="text-sm lg:text-base font-medium text-gray-700 dark:text-gray-300">同时推荐饮品</div>
-                        <div className="text-xs lg:text-sm text-gray-500 dark:text-gray-400">让搭配更完美</div>
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">同时推荐饮品</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">让搭配更完美</div>
                       </div>
                       <button
                         onClick={() => setIncludeDrink(!includeDrink)}
-                        className={`relative inline-flex h-6 w-11 lg:h-8 lg:w-14 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                           includeDrink
                             ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 lg:h-6 lg:w-6 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${
-                            includeDrink ? 'translate-x-6 lg:translate-x-8' : 'translate-x-1'
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${
+                            includeDrink ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
                       </button>
@@ -1232,22 +1195,22 @@ export default function Home() {
                       </div>
 
                       {/* Slogan */}
-                      <p className="text-lg lg:text-xl text-gray-600 dark:text-gray-300 font-medium">
+                      <p className="text-base text-gray-600 dark:text-gray-300 font-medium">
                         让AI为你做决定，告别选择困难症
                       </p>
 
                       {/* 功能特色 */}
-                      <div className="flex items-center justify-center space-x-6 text-xs text-gray-400">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">🎲</span>
+                      <div className="flex items-center justify-center space-x-4 text-xs text-gray-400">
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm">🎲</span>
                           <span>随机推荐</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">🍽️</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm">🍽️</span>
                           <span>丰富菜品</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">💫</span>
+                        <div className="flex items-center space-x-1">
+                          <span className="text-sm">💫</span>
                           <span>告别纠结</span>
                         </div>
                       </div>
@@ -1259,7 +1222,6 @@ export default function Home() {
               </div>
             </div>
           )}
-          </div>
         </div>
       </div>
     </div>
