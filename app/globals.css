@@ -328,6 +328,205 @@
   overflow: hidden;
 }
 
+/* 平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 滚动提示动画 */
+@keyframes scrollHint {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+
+.scroll-hint {
+  animation: scrollHint 2s ease-in-out infinite;
+}
+
+/* 屏幕切换动画 */
+.screen-transition {
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 200vh; /* 包含两个屏幕的高度 */
+  position: relative;
+}
+
+.screen-main {
+  transform: translateY(0);
+}
+
+.screen-ranking {
+  transform: translateY(-100vh);
+}
+
+.screen-transitioning {
+  pointer-events: none;
+}
+
+/* 确保每个屏幕内容不会互相干扰 */
+.screen-transition > div {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* 当显示排行榜时，隐藏主屏幕内容 */
+.screen-ranking > div:first-child {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 当显示主屏幕时，隐藏排行榜内容 */
+.screen-main > div:last-child {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 防止滚动条 */
+body {
+  overflow: hidden;
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* 浮动按钮样式 */
+.floating-button {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* 增强动效 */
+.hover\:shadow-3xl:hover {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* 下雨动画 - 柔和的美食雨滴 */
+@keyframes rain-drop {
+  0% {
+    transform: translateY(-200px);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.6;
+  }
+  95% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(calc(100vh + 200px));
+    opacity: 0;
+  }
+}
+
+/* 不同的雨滴轨迹 - 从屏幕外开始 */
+.animate-meteor-1 {
+  animation: rain-drop 8s linear infinite;
+  animation-delay: 0s;
+  left: 5%;
+  top: -300px;
+}
+
+.animate-meteor-2 {
+  animation: rain-drop 10s linear infinite;
+  animation-delay: 1.2s;
+  left: 15%;
+  top: -250px;
+}
+
+.animate-meteor-3 {
+  animation: rain-drop 7s linear infinite;
+  animation-delay: 2.8s;
+  left: 25%;
+  top: -350px;
+}
+
+.animate-meteor-4 {
+  animation: rain-drop 9s linear infinite;
+  animation-delay: 4.1s;
+  left: 35%;
+  top: -200px;
+}
+
+.animate-meteor-5 {
+  animation: rain-drop 11s linear infinite;
+  animation-delay: 5.5s;
+  left: 45%;
+  top: -280px;
+}
+
+.animate-meteor-6 {
+  animation: rain-drop 6s linear infinite;
+  animation-delay: 0.7s;
+  left: 55%;
+  top: -320px;
+}
+
+.animate-meteor-7 {
+  animation: rain-drop 8.5s linear infinite;
+  animation-delay: 2.3s;
+  left: 65%;
+  top: -240px;
+}
+
+.animate-meteor-8 {
+  animation: rain-drop 9.5s linear infinite;
+  animation-delay: 3.9s;
+  left: 75%;
+  top: -290px;
+}
+
+.animate-meteor-9 {
+  animation: rain-drop 7.5s linear infinite;
+  animation-delay: 1.6s;
+  left: 85%;
+  top: -260px;
+}
+
+.animate-meteor-10 {
+  animation: rain-drop 10.5s linear infinite;
+  animation-delay: 4.7s;
+  left: 95%;
+  top: -310px;
+}
+
+.animate-meteor-11 {
+  animation: rain-drop 6.5s linear infinite;
+  animation-delay: 0.3s;
+  left: 10%;
+  top: -270px;
+}
+
+.animate-meteor-12 {
+  animation: rain-drop 8.8s linear infinite;
+  animation-delay: 3.2s;
+  left: 20%;
+  top: -230px;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .floating-button {
+    bottom: 1rem !important;
+    right: 1rem !important;
+  }
+
+  /* 移动端隐藏悬浮提示，使用触摸友好的设计 */
+  .floating-button .group:hover .absolute {
+    display: none;
+  }
+}
+
 .btn-magic::before {
   content: '';
   position: absolute;

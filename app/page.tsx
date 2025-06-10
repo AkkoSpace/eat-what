@@ -92,6 +92,105 @@ export default function Home() {
     dietary: [] as string[] // 饮食忌口：不吃海鲜、不吃香菜等
   })
 
+  // 屏幕切换状态
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'ranking'>('main')
+  const [isTransitioning, setIsTransitioning] = useState(false)
+
+  // 屏幕切换函数
+  const switchToRanking = useCallback(() => {
+    if (currentScreen === 'ranking' || isTransitioning) return
+
+    setIsTransitioning(true)
+    setCurrentScreen('ranking')
+
+    setTimeout(() => {
+      setIsTransitioning(false)
+    }, 500) // 动画持续时间
+  }, [currentScreen, isTransitioning])
+
+  const switchToMain = useCallback(() => {
+    if (currentScreen === 'main' || isTransitioning) return
+
+    setIsTransitioning(true)
+    setCurrentScreen('main')
+
+    setTimeout(() => {
+      setIsTransitioning(false)
+    }, 500) // 动画持续时间
+  }, [currentScreen, isTransitioning])
+
+  // 触摸手势监听
+  useEffect(() => {
+    let startY = 0
+    let startTime = 0
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY
+      startTime = Date.now()
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isTransitioning) return
+
+      const endY = e.changedTouches[0].clientY
+      const endTime = Date.now()
+      const deltaY = endY - startY
+      const deltaTime = endTime - startTime
+
+      // 检查是否是有效的滑动手势
+      if (Math.abs(deltaY) > 50 && deltaTime < 500) {
+        if (deltaY < -50 && currentScreen === 'main') {
+          // 向上滑动，切换到排行榜
+          switchToRanking()
+        } else if (deltaY > 50 && currentScreen === 'ranking') {
+          // 向下滑动，切换到主页
+          switchToMain()
+        }
+      }
+    }
+
+    // 滚轮监听
+    let wheelTimeout: NodeJS.Timeout | null = null
+    const handleWheel = (e: WheelEvent) => {
+      if (isTransitioning) return
+
+      // 防抖处理
+      if (wheelTimeout) clearTimeout(wheelTimeout)
+      wheelTimeout = setTimeout(() => {
+        if (e.deltaY > 50 && currentScreen === 'main') {
+          // 向下滚动，切换到排行榜
+          switchToRanking()
+        } else if (e.deltaY < -50 && currentScreen === 'ranking') {
+          // 向上滚动，切换到主页
+          switchToMain()
+        }
+      }, 100)
+    }
+
+    // 键盘监听
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTransitioning) return
+
+      if (e.key === 'ArrowDown' && currentScreen === 'main') {
+        switchToRanking()
+      } else if (e.key === 'ArrowUp' && currentScreen === 'ranking') {
+        switchToMain()
+      }
+    }
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
+    document.addEventListener('touchend', handleTouchEnd, { passive: true })
+    document.addEventListener('wheel', handleWheel, { passive: true })
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchend', handleTouchEnd)
+      document.removeEventListener('wheel', handleWheel)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentScreen, isTransitioning, switchToRanking, switchToMain])
+
   // 数字动画函数
   const animateCount = useCallback((targetCount: number) => {
     if (targetCount === displayedCount) return
@@ -577,16 +676,20 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-red-50 to-pink-50 relative overflow-x-hidden">
-      {/* 背景装饰 - 浮动美食emoji */}
+      {/* 背景装饰 - 美食雨滴 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-10 left-10 text-4xl opacity-20 animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🍕</div>
-        <div className="absolute top-20 right-20 text-3xl opacity-15 animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🍔</div>
-        <div className="absolute top-40 left-1/4 text-5xl opacity-10 animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🍜</div>
-        <div className="absolute top-60 right-1/3 text-3xl opacity-20 animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🥤</div>
-        <div className="absolute bottom-40 left-20 text-4xl opacity-15 animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🍰</div>
-        <div className="absolute bottom-60 right-10 text-3xl opacity-10 animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3s'}}>🍣</div>
-        <div className="absolute top-1/3 left-1/2 text-6xl opacity-5 animate-bounce" style={{animationDelay: '3s', animationDuration: '6s'}}>🍲</div>
-        <div className="absolute bottom-1/3 right-1/4 text-4xl opacity-15 animate-bounce" style={{animationDelay: '0.8s', animationDuration: '4s'}}>🥗</div>
+        <div className="absolute text-4xl opacity-20 animate-meteor-1">🍕</div>
+        <div className="absolute text-3xl opacity-15 animate-meteor-2">🍔</div>
+        <div className="absolute text-5xl opacity-10 animate-meteor-3">🍜</div>
+        <div className="absolute text-3xl opacity-20 animate-meteor-4">🥤</div>
+        <div className="absolute text-4xl opacity-15 animate-meteor-5">🍰</div>
+        <div className="absolute text-3xl opacity-10 animate-meteor-6">🍣</div>
+        <div className="absolute text-6xl opacity-5 animate-meteor-7">🍲</div>
+        <div className="absolute text-4xl opacity-15 animate-meteor-8">🥗</div>
+        <div className="absolute text-3xl opacity-12 animate-meteor-9">🥟</div>
+        <div className="absolute text-4xl opacity-18 animate-meteor-10">🍱</div>
+        <div className="absolute text-3xl opacity-14 animate-meteor-11">🧋</div>
+        <div className="absolute text-5xl opacity-8 animate-meteor-12">🍛</div>
       </div>
 
       {/* 右上角功能区 */}
@@ -768,13 +871,40 @@ export default function Home() {
         )}
       </div>
 
-      {/* 主要内容区域 - 沉浸式单屏设计 */}
-      <div className="relative z-10 min-h-screen flex flex-col">
-        {/* 第一屏：主要推荐功能 */}
-        <div className="min-h-screen flex flex-col justify-center items-center px-4 py-8">
+      {/* 主要内容区域 - 单屏切换设计 */}
+      <div className="relative z-10 h-screen overflow-hidden">
+        {/* 屏幕容器 */}
+        <div className={`screen-transition ${isTransitioning ? 'screen-transitioning' : ''} ${
+          currentScreen === 'main' ? 'screen-main' : 'screen-ranking'
+        }`}>
+          {/* 第一屏：主要推荐功能 */}
+          <div className="h-screen flex flex-col px-4 py-8 relative">
+          {/* 切换提示 - 只在主页显示，放在右下角 */}
+          {!animationData && !recommendation && currentScreen === 'main' && (
+            <div className="fixed bottom-6 right-6 z-30 floating-button">
+              <div className="relative group">
+                <button
+                  onClick={switchToRanking}
+                  className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-orange-50 hover:border-orange-200 hover:scale-110"
+                >
+                  <svg className="w-6 h-6 text-gray-600 group-hover:text-orange-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </button>
+                {/* 悬浮提示 */}
+                <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                  <div className="bg-gray-800 text-white text-sm px-3 py-1 rounded-lg whitespace-nowrap">
+                    查看排行榜
+                    <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {animationData ? (
               /* 推荐过程和结果区域 - 老虎机动画 */
-              <div className="w-full max-w-4xl mx-auto space-y-8">
+              <div className="w-full max-w-4xl mx-auto space-y-8 flex-1 flex flex-col justify-center">
                 <div className="text-center">
                   <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-4">
                     {showAnimation ? '🎰 正在为你挑选...' : '🎉 推荐结果'}
@@ -819,7 +949,7 @@ export default function Home() {
               </div>
             ) : recommendation ? (
                 /* 推荐结果页面 */
-                <div className="space-y-6">
+                <div className="w-full max-w-4xl mx-auto space-y-4 flex-1 flex flex-col justify-center overflow-y-auto max-h-screen py-4">
                   <div className="text-center">
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent mb-2">
                       🎉 推荐结果
@@ -1062,28 +1192,27 @@ export default function Home() {
                 </div>
           ) : (
             /* 🎯 新版沉浸式单屏设计 */
-            <div className="w-full max-w-4xl mx-auto space-y-12">
+            <div className="w-full max-w-4xl mx-auto space-y-12 flex-1 flex flex-col justify-center">
               {/* 主标题区域 */}
               <div className="text-center space-y-6">
                 <div className="relative">
                   <h1 className="text-5xl md:text-7xl lg:text-8xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent drop-shadow-lg leading-none">
-                    吃啥？
+                    吃啥
                   </h1>
                   {/* 标题装饰 */}
                   <div className="absolute -top-4 -right-4 text-3xl animate-spin-slow">✨</div>
-                  <div className="absolute -bottom-2 -left-2 text-2xl animate-bounce" style={{animationDelay: '1s'}}>🎲</div>
                 </div>
 
                 {/* 统计信息 */}
                 <div className="flex items-center justify-center space-x-6 text-lg text-gray-600">
                   <div className="flex items-center space-x-3">
-                    <span>已帮助</span>
-                    <FlipCounter
-                      value={displayedCount}
-                      isAnimating={isCountAnimating}
-                      className="text-2xl font-bold text-orange-500"
-                    />
-                    <span>次选择</span>
+                    <span>已为吃货们决定</span>
+                    <span className={`text-3xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent transition-all duration-500 ${
+                      isCountAnimating ? 'scale-110 animate-pulse' : ''
+                    }`}>
+                      {displayedCount}
+                    </span>
+                    <span>次</span>
                   </div>
                   {pollingInterval && (
                     <div className="flex items-center space-x-2">
@@ -1096,16 +1225,6 @@ export default function Home() {
 
               {/* 主要交互区域 */}
               <div className="space-y-8 relative z-20">
-                {/* 测试按钮 */}
-                <div className="flex justify-center mb-4">
-                  <button
-                    onClick={() => alert('测试按钮工作正常！')}
-                    className="bg-blue-500 text-white px-4 py-2 rounded"
-                  >
-                    测试按钮
-                  </button>
-                </div>
-
                 {/* 主推荐按钮 - 绝对视觉中心 */}
                 <div className="relative flex justify-center">
                   <Button
@@ -1114,7 +1233,7 @@ export default function Home() {
                       handleRecommend()
                     }}
                     disabled={isLoading}
-                    className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-2xl md:text-3xl font-black py-8 px-16 rounded-full shadow-2xl hover:scale-105 transition-all duration-300 disabled:opacity-50 relative z-30"
+                    className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-600 hover:via-red-600 hover:to-pink-600 text-white text-2xl md:text-3xl font-black py-8 px-16 rounded-full shadow-2xl hover:scale-110 hover:shadow-3xl transition-all duration-300 disabled:opacity-50 hover:animate-pulse"
                     size="xl"
                   >
                     {isLoading ? (
@@ -1124,7 +1243,7 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-center space-x-3">
-                        <span className="text-3xl">🎰</span>
+                        <span className="text-3xl animate-bounce">🎲</span>
                         <span>帮我决定！</span>
                       </div>
                     )}
@@ -1156,19 +1275,24 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* 筛选按钮 */}
-                  <Button
-                    onClick={() => {
-                      console.log('筛选按钮被点击了！')
-                      setShowFilters(!showFilters)
-                    }}
-                    variant="outline"
-                    className="bg-white border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 px-6 py-3 rounded-xl"
-                  >
-                    <Filter className="w-5 h-5 mr-2" />
-                    <span className="font-medium">个性化筛选</span>
-                    <Sparkles className="w-4 h-4 ml-2 text-orange-500" />
-                  </Button>
+                  {/* 筛选引导 */}
+                  <div className="text-center space-y-3">
+                    <p className="text-gray-600 text-sm">
+                      有什么忌口吗？想吃点清淡的？
+                    </p>
+                    <Button
+                      onClick={() => {
+                        console.log('筛选按钮被点击了！')
+                        setShowFilters(!showFilters)
+                      }}
+                      variant="outline"
+                      className="bg-white border-2 border-gray-200 hover:border-orange-300 hover:bg-orange-50 px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
+                    >
+                      <Filter className="w-5 h-5 mr-2" />
+                      <span className="font-medium">个性化筛选</span>
+                      <Sparkles className="w-4 h-4 ml-2 text-orange-500" />
+                    </Button>
+                  </div>
                 </div>
 
                 {/* ⚠️ 错误提示 */}
@@ -1183,10 +1307,10 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
+          </div>
 
-        {/* 第二屏：本周热门（美食排行榜） */}
-        <div className="min-h-screen flex flex-col justify-center items-center px-4 py-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
+          {/* 第二屏：本周热门（美食排行榜） */}
+          <div className="h-screen flex flex-col justify-center items-center px-4 py-8 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 relative">
           <div className="w-full max-w-6xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
@@ -1201,6 +1325,30 @@ export default function Home() {
             <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/20">
               <FoodRankingPanel />
             </div>
+          </div>
+
+            {/* 返回主页按钮 - 放在右下角 */}
+            {currentScreen === 'ranking' && (
+              <div className="fixed bottom-6 right-6 z-30 floating-button">
+                <div className="relative group">
+                  <button
+                    onClick={switchToMain}
+                    className="bg-white/90 backdrop-blur-sm border border-gray-200 rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:bg-blue-50 hover:border-blue-200 hover:scale-110"
+                  >
+                    <svg className="w-6 h-6 text-gray-600 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                  </button>
+                  {/* 悬浮提示 */}
+                  <div className="absolute bottom-full right-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                    <div className="bg-gray-800 text-white text-sm px-3 py-1 rounded-lg whitespace-nowrap">
+                      返回推荐
+                      <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

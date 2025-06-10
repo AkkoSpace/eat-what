@@ -29,37 +29,40 @@ const FlipDigit = ({ digit, isAnimating }: FlipDigitProps) => {
 
   return (
     <div className="relative inline-block w-12 h-16 md:w-16 md:h-20 lg:w-20 lg:h-24 perspective-1000">
-      {/* 背景卡片 */}
-      <div className="absolute inset-0 bg-gradient-to-b from-gray-800 via-gray-850 to-gray-900 rounded-lg shadow-2xl border border-gray-700">
+      {/* 背景卡片 - 统一的橙红渐变风格 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 rounded-xl shadow-2xl border-2 border-white/20">
         {/* 中间分割线 */}
-        <div className="absolute top-1/2 left-0 right-0 h-px bg-gray-600 z-10 shadow-sm"></div>
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-white/30 z-10 shadow-sm"></div>
 
         {/* 上半部分背景 */}
-        <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-gray-750 to-gray-800 rounded-t-lg"></div>
+        <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-orange-300/20 to-transparent rounded-t-xl"></div>
 
         {/* 下半部分背景 */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-b from-gray-850 to-gray-900 rounded-b-lg"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-pink-600/20 to-transparent rounded-b-xl"></div>
 
         {/* 当前数字 */}
-        <div className={`absolute inset-0 flex items-center justify-center text-white font-black text-2xl md:text-3xl lg:text-4xl transition-transform duration-300 z-20 ${
-          isFlipping ? 'animate-flip-out' : ''
+        <div className={`absolute inset-0 flex items-center justify-center text-white font-black text-2xl md:text-3xl lg:text-4xl transition-transform duration-300 z-20 drop-shadow-lg ${
+          isFlipping ? 'animate-flip-out' : isAnimating ? 'animate-glow-pulse' : ''
         }`} style={{ transformStyle: 'preserve-3d' }}>
           {currentDigit}
         </div>
 
         {/* 翻页数字 */}
         {isFlipping && (
-          <div className="absolute inset-0 flex items-center justify-center text-white font-black text-2xl md:text-3xl lg:text-4xl animate-flip-in z-20" style={{ transformStyle: 'preserve-3d' }}>
+          <div className="absolute inset-0 flex items-center justify-center text-white font-black text-2xl md:text-3xl lg:text-4xl animate-flip-in animate-glow-pulse z-20 drop-shadow-lg" style={{ transformStyle: 'preserve-3d' }}>
             {nextDigit}
           </div>
         )}
       </div>
 
-      {/* 高光效果 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-lg pointer-events-none"></div>
+      {/* 高光效果 - 增强光泽感 */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-xl pointer-events-none"></div>
 
-      {/* 边缘阴影 */}
-      <div className="absolute inset-0 rounded-lg shadow-inner pointer-events-none" style={{ boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)' }}></div>
+      {/* 边缘阴影 - 柔和的内阴影 */}
+      <div className="absolute inset-0 rounded-xl shadow-inner pointer-events-none" style={{ boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.1)' }}></div>
+
+      {/* 外发光效果 */}
+      <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ boxShadow: '0 0 20px rgba(251, 146, 60, 0.3)' }}></div>
     </div>
   )
 }
@@ -143,13 +146,18 @@ export const useFlipStyles = () => {
         transform-style: preserve-3d;
       }
 
-      /* 自定义灰色 */
-      .bg-gray-750 {
-        background-color: rgb(55, 65, 81);
+      /* 数字发光效果 */
+      @keyframes glow-pulse {
+        0%, 100% {
+          text-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 0 10px rgba(255, 255, 255, 0.4);
+        }
+        50% {
+          text-shadow: 0 0 10px rgba(255, 255, 255, 1), 0 0 20px rgba(255, 255, 255, 0.6), 0 0 30px rgba(251, 146, 60, 0.4);
+        }
       }
 
-      .bg-gray-850 {
-        background-color: rgb(31, 41, 55);
+      .animate-glow-pulse {
+        animation: glow-pulse 2s ease-in-out infinite;
       }
 
       /* 自定义动画 */
